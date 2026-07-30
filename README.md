@@ -1,120 +1,130 @@
-# 舞蹈跟练房 Dance Trainer
+# Dance Trainer
 
-把任意一个舞蹈视频变成你的私人练习房：镜面、慢放、AB 段循环、骨架描边，打开摄像头就能看到自己哪里没跟上。
+Turn any dance video into a practice room: skeleton overlay, mirror, slow motion, A-B loop, and a webcam view that shows you where you are off.
 
-视频和摄像头画面**全部在浏览器本地处理**，不上传任何数据。
+Video and webcam frames are processed **entirely in the browser**. Nothing is uploaded.
 
-## 功能
+## What it does
 
-界面为英文（`Reference` = 目标动作，`You` = 你的动作）。
+**Reference panel**
 
-**Reference（目标动作）面板**
-- 上传（或拖入）任意视频，逐帧提取舞者骨架并描边叠加
-- **左右肢体分色**：舞者自己的左半身青色、右半身橙色、躯干中性白 —— 一眼看出该动哪条腿
-- 镜面翻转 —— 跟练时不用在脑子里左右互换
-- 0.25× / 0.5× / 0.75× / 1× 变速
-- A-B 段循环，抠一个八拍反复练
-- 「Outline only」把画面压暗，只留骨架，看清发力和轨迹
-- 「Zoom」放大，三档：
-  - **Off** 完整画面
-  - **Fit**（推荐）框住舞者用到的那块空间，然后**基本不动**
-  - **Follow** 人走到哪跟到哪，适合大幅横移的视频
-- 多人视频：点击画面里的某位舞者即可锁定跟随
-- 「Fingers」开关：叠加 21 点手部骨架，看清手型（默认关闭，见下）
+- Load (or drop in) any video; the dancer's skeleton is extracted per frame and drawn over it
+- **Left and right limbs in different colours** — the dancer's left side cyan, right side orange, torso neutral, so it is obvious which leg is moving
+- Mirror, so you do not have to flip left and right in your head
+- 0.25x / 0.5x / 0.75x / 1x playback
+- A-B loop, for drilling one eight-count
+- *Outline only* dims the footage and leaves the skeleton, which makes lines and travel easier to read
+- *Zoom*, three settings:
+  - **Off** — the whole frame
+  - **Fit** (recommended) — settles on a framing and then holds it
+  - **Follow** — keeps the dancer centred, for footage where they travel
+- Group video: click a dancer to lock onto them
+- *Fingers* — overlays a 21-point hand skeleton (off by default, see below)
 
-**You（你的动作）面板**
-- 摄像头实时提取你的骨架
-- 按**关节角度**和目标动作逐帧对比，骨架按差距染色：
-  绿 = 跟上了，黄 = 有点偏，红 = 差得多，灰 = 未对比
-- 顶部显示平滑后的匹配度，下方提示当前最该注意的关节
-- 这一侧**不做左右分色** —— 颜色留给「跟上没跟上」这个更重要的信息，否则两套语义会打架
+**You panel**
 
-## 跑起来
+- Your skeleton, live from the webcam
+- Compared with the reference frame by frame **by joint angle**, with the skeleton coloured by how far off each joint is: green matching, yellow a bit off, red way off, grey not compared
+- A smoothed match score, plus a prompt naming the joints that are furthest off
+- This side deliberately does **not** colour by left and right. Colour is spent on the more useful signal, and two colour languages on one skeleton would collide.
+
+## Running it
 
 ```bash
-npm install   # 顺带执行 npm run setup，准备好模型和 WASM
+npm install   # also runs npm run setup, which fetches the models and WASM
 npm run dev
 ```
 
-`npm run setup` 会把 MediaPipe 的 WASM 运行时从 `node_modules` 拷到 `public/wasm`，并下载一次姿态模型到 `public/models`（约 38MB，不进版本库）。之后运行不再需要联网。
+`npm run setup` copies MediaPipe's WASM runtime out of `node_modules` into `public/wasm` and downloads the pose and hand models into `public/models` (about 38 MB, kept out of version control). After that it runs offline.
 
-## 实现要点
+## How it works
 
-**姿态估计** —— MediaPipe Tasks Vision 的 `pose_landmarker_lite`，BlazePose 33 关键点，GPU delegate（失败自动退回 CPU），纯浏览器推理。
+**Pose estimation** — MediaPipe Tasks Vision `pose_landmarker_lite`, BlazePose's 33 landmarks, GPU delegate with an automatic CPU fallback. All inference runs in the browser.
 
-**为什么用关节角度而不是坐标** —— 身材、站位、镜头距离都不同，直接比坐标没有意义。改成比较 8 个关节（左右肘/肩/髋/膝）的夹角，天然对平移和缩放不变。
+**Why joint angles rather than coordinates** — bodies, positions and camera distances all differ, so comparing coordinates is meaningless. Comparing the angles at eight joints (both elbows, shoulders, hips and knees) is naturally invariant to translation and scale.
 
-**角度必须做长宽比校正** —— 关键点坐标是按各轴分别归一化的，所以 x 被画面长宽比压扁了。视频和摄像头的长宽比通常不同，若不校正，两边的角度是在不同的畸变空间里算出来的，比较结果会有系统性偏差。`computeAngles` 统一把 x 换算回「以画面高度为单位」。
+**Angles need an aspect correction** — landmarks are normalised per axis, so x is squashed by the frame's aspect ratio. The video and the webcam rarely share an aspect ratio, so without correcting for it the two sides' angles are computed in differently distorted spaces and the comparison carries a systematic bias. `computeAngles` scales x back into units of frame height.
 
-**多人视频里选人：裁剪跟随（crop-and-track）** —— 这是本项目最主要的工程点。
+### Picking a dancer in a group video: crop and track
 
-实测发现（lite / full / heavy 三个模型表现一致）：当画面里两人**体型相近**时，`numPoses > 1` 能同时检测到；但只要有一人明显更小，BlazePose 的人体检测器就只报告最主要的那个，降低置信度阈值也没用。也就是说，靠全帧检测 + 点击命中的做法，对次要舞者根本失效。
+The main piece of engineering here.
 
-所以改成实际多人系统的做法——检测 → 裁剪 → 单人姿态：
+Measured behaviour, identical across the lite, full and heavy models: when two people are **similar in size**, `numPoses > 1` finds both; as soon as one is noticeably smaller, BlazePose's person detector reports only the dominant one, and lowering the confidence thresholds does not help. Whole-frame detection plus a click test therefore cannot select a secondary dancer at all.
 
-1. 点击时先做一次全帧检测。**只有点击真的落在某个检测到的人身上**（`poseHit`）才采用它的包围盒；否则以点击点为中心开一个默认大小的方框。这一步很关键：`pickPose` 会返回最近的人而不管多远，少了命中判断，点一个检测不到的舞者会被吸附到唯一可见的那个人身上。
-2. 之后每帧只把这个方框（正方形，避免拉伸畸变）放大到 384×384 送进模型，检测单人姿态。
-3. 关键点再反投影回全帧归一化坐标（`unproject`），供描边和角度计算使用。
-4. 方框用插值平滑地跟随舞者移动；连续丢失则逐步放大搜索范围，超过 20 帧放弃锁定，退回全帧跟随。
+So it does what practical multi-person systems do — detect, crop, then single-person pose:
 
-裁剪后目标占满画面，小尺寸舞者也能稳定检测，精度还更高。
+1. A click runs one whole-frame detection. That pose is used **only if the click actually landed on it** (`poseHit`); otherwise a default-sized box is opened at the click point. This step matters: `pickPose` returns the nearest pose however far away it is, so without the hit test, clicking a dancer the detector cannot see snaps the selection onto the one it can.
+2. Every frame after that, only this box — square, so nothing is stretched — is scaled to 384x384 and run through the model as a single pose.
+3. The landmarks are projected back into whole-frame normalised coordinates (`unproject`) for drawing and angle maths.
+4. The box eases along with the dancer. If detection fails it widens gradually, and after 20 lost frames the lock is dropped and whole-frame tracking resumes.
 
-**放大是纯显示层的变换，难点全在「不抖」** —— 算出「装得下这个人的最大缩放」，再用 CSS transform 把视频和描边一起放大平移。
+Cropped, the subject fills the frame, so small dancers are detected reliably and with better precision.
 
-第一版直接拿**当前帧**的包围盒当目标，结果一直在抖。原因不是数值噪声，而是结构性的：舞者一张开手臂包围盒就变宽，一收回就变窄，画面于是跟着呼吸；而且放得越大，同样的波动在屏幕上的位移就被放大越多（乘以缩放倍数）。所以「放到最大」这个策略本身就在制造抖动。
+### Zoom is a display-layer transform, and the hard part is holding still
 
-现在的做法：
+Work out the largest scale the dancer still fits in, then use a CSS transform to scale and pan the video and the overlay together.
 
-- **Fit：观察一下下，定好取景，然后冻结。** 前 1.5 秒把包围盒累积成并集，收敛后加 8% 余量**一次性定死**；此后除非舞者真的要被裁掉，否则一步都不挪（被裁时扩一次，再冻结）。为防止某一帧误检把画面永久拉大，面积暴涨超过 3 倍的帧直接丢弃。
+The first version took the **current frame's** bounding box as the target, and shook constantly. The cause is structural rather than numerical: the box widens when the dancer extends an arm and narrows when they pull it in, so the shot breathes — and the more it is zoomed, the more that wobble is amplified on screen, multiplied by the scale. Zooming as far as possible is itself what produces the shake.
 
-  第一版只做了「并集 + 死区」，没有冻结——并集会随舞者移动一直长，每长一点就挪一次镜头，所以**还是在动**。这是「基本不动」和「真的不动」的区别，必须冻结才算数。
+What it does now:
 
-  预热用**墙钟时间**而不是帧数：帧数在慢机器/后台标签页上会拖很久，镜头就一直在飘。
-- **Follow**：对包围盒做重度平滑（EMA），中心跟着人走，但尺寸几乎不随手臂开合变化。
-- **两档共用一个死区**：缩放变化 <5%、平移 <8px 一律不动。这是「不抖」的关键——没有它，镜头会持续微调，看起来就是抖。
-- **上限降到 2.5×**：原视频分辨率有限，再放大只是把糊的像素放得更大，没有新信息。
-- **姿态丢一帧不再弹回**：之前检测偶尔丢帧会让目标瞬间变回 1×，画面猛地弹一下；现在没检测到就保持上一次的取景。
+- **Fit: watch briefly, commit to a framing, then freeze.** For the first 1.5 seconds the bounding boxes are accumulated into a union; once that settles, 8% of headroom is added and the framing is **fixed**. After that it does not move at all unless the dancer would actually be clipped, in which case it expands once and freezes again. To stop a single misdetection widening the shot permanently, frames whose box balloons past 3x the current area are discarded.
 
-实测（舞者左右漂移 ±110px 的片段，循环播放）：冻结之后取景**始终只有 1 个值**，完全不动；冻结前 3 次变化是初始推近的过程。Follow 同一段有 3 次变化，缩放稳定在 2.4–2.5，只有平移在跟人。
+  The first attempt did the union and a deadband but no freeze — and the union keeps growing as the dancer moves, nudging the shot every time it does, so it **still moved**. That is the difference between "mostly still" and actually still; only freezing counts.
 
-其余三个要点：
+  The warm-up is measured in **wall-clock time, not frames**. A frame count drags on for seconds on a slow machine or a background tab, leaving the shot drifting the whole time.
 
-1. 变换写在**包住 video 和 canvas 的同一个容器**上，两者一起缩放，描边才不会和画面错位；
-2. 每帧用插值缓动到目标值，否则舞者一动画面就抖；并且**平移量要做钳制**，保证画面始终盖住舞台，不会平移出黑边；
-3. 变换直接写 DOM（`style.transform`），不走 React state —— 这是每帧都在跑的东西，每帧触发一次重渲染太浪费。
+- **Follow** smooths the box heavily (EMA), so the centre tracks the dancer while the size barely responds to arms opening and closing.
 
-因为是均匀的缩放+平移，点击选人的坐标映射自动仍然成立（放大状态下点击画面中心仍能正确锁定），不需要额外反算。
+- **Both modes share a deadband**: scale changes under 5% and pans under 8px are ignored. This is what "not shaking" rests on. Without it the shot is continuously making small corrections, which reads as jitter.
 
-注意：**放大依赖"已经检测到人"**。远景里人太小时全帧检测本来就失败，这时先点一下那个人（走裁剪锁定那条路）就能同时拿到骨架和放大。
+- **The cap is 2.5x.** Past that the source has no more detail to give and it only magnifies blur.
 
-**手指：同样必须裁剪，而且必须锚定在手腕上** —— 直接在全帧上跑 HandLandmarker 不可用。手在舞蹈画面里很小，把置信度调低到能找到手的程度，模型就会开始把**脚当成手**（实测就发生了：报告的手腕落在 y=0.805，也就是脚踝那一带，还画了一只完整的手上去）。
+- **A dropped pose no longer snaps back.** A missed detection used to reset the target to 1x and jolt the picture; now the last framing is kept.
 
-解决办法不是继续调阈值，而是消除这类误检的可能性：用姿态给出的手腕和手肘，在手腕稍外侧（手是往远离手肘的方向长的）开一个方框，边长按肩宽估算，只在这个框里找手。这样既杜绝了"脚被认成手"，又让手在送进模型时占满画面。左右手各一个 landmarker 实例，颜色直接取对应侧，不需要再猜 handedness。
+Measured on a clip where the dancer drifts about 110px side to side, looping: after freezing, the framing takes **exactly one value** and never moves; the three changes before that are the initial push-in. Follow, on the same clip, changes three times, with scale steady at 2.4-2.5 and only the pan tracking the dancer.
 
-代价是每帧多两次推理，所以做成开关，默认关闭。
+Three smaller points:
 
-**三/五个独立的 landmarker 实例** —— VIDEO 模式的追踪器带有跨帧内部状态，把不同取景混着喂给同一个实例会污染它的预测（表现为骨架错乱）。所以全帧姿态、裁剪姿态、左手、右手各用一个实例，时间戳各自单调递增。
+1. The transform goes on **a single container wrapping both the video and the canvas**, so they scale together and the overlay never drifts out of register.
+2. Each frame eases toward the target, and the pan is **clamped** so the frame always covers the stage and never pans into the void.
+3. The transform is written straight to the DOM (`style.transform`) rather than through React state. It runs every frame, and a re-render per frame would be wasteful.
 
-**几个容易踩的坑**
-- 暂停/刚 seek 的 `<video>` 直接上传给 WebGL 有可能是空帧，先 `drawImage` 到 2D canvas 再送模型。
-- 画面暂停时不会有新帧驱动检测，所以换锁定目标后要强制再跑几帧（settle），否则屏幕会一直停在追踪器的预热结果上。
-- canvas 用 `object-fit: contain` 会有黑边，点击坐标必须先减掉黑边再归一化，否则点击位置整体偏移。
-- MediaRecorder 录出来的 webm 在播放前 `duration` 是 `Infinity`。
+Because it is a uniform scale and pan, the click-to-select coordinate mapping keeps working with no extra inverse maths — clicking the centre of a zoomed-in stage still locks on correctly.
 
-## 已知限制
+Note that **zoom depends on someone already being detected**. In a wide shot where the dancer is too small, whole-frame detection fails anyway; clicking them first, which takes the crop-and-track path, gets you both the skeleton and the zoom.
 
-- 多人视频中，如果两位舞者严重重叠或交叉换位，锁定可能跟错人 —— 重新点一下即可。
-- 匹配度只看 8 个主要关节的二维角度，不含手腕朝向、身体转向和深度信息；侧身、转体动作的判定会偏宽松。
-- 打分是逐帧比较，不做时间对齐（DTW），所以节奏偏差会直接算成动作偏差。
-- 手指只在 Reference 一侧显示，**不参与打分** —— 角度比对里没有手指。手速快时会有丢帧；手被身体挡住或糊掉时找不到，属正常。
-- 左右分色用的是**舞者自己的**左右。开着镜面时，舞者的左手会出现在你的右边 —— 这正是镜面的用途，跟着屏幕同侧动就对了。
+### Fingers: also cropped, and anchored to the wrist
 
-## 后续可做
+Running HandLandmarker on the whole frame does not work. Hands are small in dance footage, and at thresholds low enough to find them the model starts reporting **feet as hands**. That is not hypothetical: it reported a wrist at y=0.805, down at the ankles, and drew a complete hand there.
 
-- DTW 时间对齐，把「节奏错」和「动作错」分开
-- 骨架叠加对比（把你的骨架和目标骨架重叠显示），比分数更直观
-- 分段练习记录：哪几个八拍总是练不好
+The fix is not more threshold tuning but removing the possibility. Take the wrist and elbow the pose already found, open a box just past the wrist — hands extend away from the elbow — sized off shoulder width, and look for a hand only inside it. That rules out the foot-as-hand failure entirely, and hands the model a subject that fills the frame. One landmarker per hand, so the colour comes from the side directly and handedness never has to be guessed.
 
-## 技术栈
+It costs two extra inference passes per frame, so it is a toggle, off by default.
 
-React 19 + TypeScript + Vite，MediaPipe Tasks Vision，Canvas 2D。无后端。
+**Separate landmarker instances** — a VIDEO-mode tracker carries internal state across frames, so feeding one instance different framings corrupts its predictions, visibly, as a scrambled skeleton. Whole-frame pose, cropped pose, left hand and right hand each get their own instance, each with its own monotonically increasing timestamps.
+
+### Things that bite
+
+- A paused or freshly seeked `<video>` can upload as an empty frame to WebGL. Draw it to a 2D canvas first.
+- A paused video produces no new frames to drive detection, so switching the locked dancer has to force a few extra passes, or the screen stays stuck on the tracker's warm-up result.
+- `object-fit: contain` letterboxes the canvas. Click coordinates must have the bars subtracted before normalising, or every click lands offset.
+- webm recorded by MediaRecorder reports `duration` as `Infinity` until it has played.
+
+## Known limits
+
+- In a group video, dancers who overlap heavily or swap places can send the lock to the wrong person. Click again to fix it.
+- The score reads eight joints in two dimensions only. It has no wrist orientation, body facing or depth, so side-on and turning movements are judged loosely.
+- Scoring is frame by frame with no time alignment (DTW), so being off the beat is counted as being off the move.
+- Fingers are shown on the Reference side only and **do not affect the score** — there are no finger terms in the angle comparison. Fast hand movement drops frames, and hands that are occluded or motion-blurred are simply not found.
+- The left and right colours are the **dancer's own** left and right. With Mirror on, their left hand appears on your right, which is the point of mirroring: move the limb on the same side of the screen.
+
+## Possible next steps
+
+- DTW time alignment, to separate "off the beat" from "wrong move"
+- Overlaying your skeleton directly on the reference skeleton, which is more informative than a score
+- Per-section practice history: which eight-counts keep going wrong
+
+## Stack
+
+React 19, TypeScript, Vite, MediaPipe Tasks Vision, Canvas 2D. No backend.

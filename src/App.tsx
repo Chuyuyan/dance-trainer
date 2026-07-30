@@ -30,7 +30,7 @@ export default function App() {
     <div className="app">
       <header>
         <h1>
-          🩰 Dance Trainer <span className="sub">Load any dance video and follow the outline</span>
+          Dance Trainer <span className="sub">Load any dance video and follow the outline</span>
         </h1>
         <label className="btn primary upload">
           {src ? 'Change video' : 'Load video'}
@@ -56,7 +56,6 @@ export default function App() {
             }}
           >
             <div className="drop-inner">
-              <div className="drop-icon">🎬</div>
               <p>Drop a dance video here, or load one from the top right</p>
               <p className="hint">
                 Solo or group video · click a dancer to follow them · everything runs locally, nothing is

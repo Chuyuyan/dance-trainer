@@ -289,10 +289,6 @@ header .sub {
   max-width: 360px;
 }
 
-.drop-icon {
-  font-size: 44px;
-}
-
 footer {
   display: flex;
   flex-wrap: wrap;

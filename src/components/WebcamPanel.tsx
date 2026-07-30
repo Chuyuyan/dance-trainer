@@ -135,7 +135,7 @@ export default function WebcamPanel({ targetRef }: Props) {
         {!running && (
           <div className="stage-overlay">
             <button className="btn primary" onClick={start} disabled={starting}>
-              {starting ? 'Starting…' : '📷 Turn on camera'}
+              {starting ? 'Starting…' : 'Turn on camera'}
             </button>
             {error && <p className="error">{error}</p>}
           </div>
