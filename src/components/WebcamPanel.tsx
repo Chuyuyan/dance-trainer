@@ -4,6 +4,7 @@ import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
 import { computeAngles, compareAngles, levelConnectionColors } from '../pose/angles'
 import type { TargetPose } from './VideoPanel'
+import { recordSession } from '../playkitClient'
 
 interface Props {
   targetRef: React.MutableRefObject<TargetPose>
@@ -17,6 +18,10 @@ export default function WebcamPanel({ targetRef }: Props) {
   const emaRef = useRef<number | null>(null)
   const lastUiRef = useRef(0)
   const mirrorCompareRef = useRef(true)
+
+  // Aggregates for the practice session, so a signed-in dancer keeps a history
+  // instead of a number that vanishes when the camera stops.
+  const sessionRef = useRef({ startedAt: 0, sum: 0, count: 0, best: 0 })
 
   const [running, setRunning] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -47,6 +52,7 @@ export default function WebcamPanel({ targetRef }: Props) {
       const v = videoRef.current!
       v.srcObject = stream
       await v.play()
+      sessionRef.current = { startedAt: performance.now(), sum: 0, count: 0, best: 0 }
       setRunning(true)
     } catch (e) {
       console.error('webcam start failed', e)
@@ -61,6 +67,20 @@ export default function WebcamPanel({ targetRef }: Props) {
   }
 
   const stop = () => {
+    // Save before tearing down, while the aggregates are still intact.
+    const s = sessionRef.current
+    const seconds = s.startedAt ? Math.round((performance.now() - s.startedAt) / 1000) : 0
+    // Ignore accidental blips — a two-second session is not practice.
+    if (s.count > 0 && seconds >= 10) {
+      void recordSession({
+        at: new Date().toISOString(),
+        seconds,
+        averageMatch: Math.round(s.sum / s.count),
+        bestMatch: Math.round(s.best),
+      })
+    }
+    sessionRef.current = { startedAt: 0, sum: 0, count: 0, best: 0 }
+
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
@@ -108,6 +128,12 @@ export default function WebcamPanel({ targetRef }: Props) {
 
       if (frameScore !== null) {
         emaRef.current = emaRef.current === null ? frameScore : emaRef.current * 0.85 + frameScore * 0.15
+        // Accumulate on the smoothed value: a single noisy frame shouldn't
+        // become someone's "best match".
+        const s = sessionRef.current
+        s.sum += emaRef.current
+        s.count++
+        if (emaRef.current > s.best) s.best = emaRef.current
       } else {
         emaRef.current = null
       }

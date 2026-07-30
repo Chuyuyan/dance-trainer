@@ -2,7 +2,9 @@
 
 Turn any dance video into a practice room: skeleton overlay, mirror, slow motion, A-B loop, and a webcam view that shows you where you are off.
 
-Video and webcam frames are processed **entirely in the browser**. Nothing is uploaded.
+Video and webcam frames are processed **entirely in the browser** — neither your video nor your camera feed is ever uploaded. By default the app makes no requests to any server of mine at all.
+
+Accounts are optional and off by default (see [Accounts](#accounts-optional)); when enabled, the only thing stored is aggregate practice numbers — how long you practised and how closely you matched.
 
 ## What it does
 
@@ -124,6 +126,27 @@ It costs two extra inference passes per frame, so it is a toggle, off by default
 - DTW time alignment, to separate "off the beat" from "wrong move"
 - Overlaying your skeleton directly on the reference skeleton, which is more informative than a score
 - Per-section practice history: which eight-counts keep going wrong
+
+## Accounts (optional)
+
+Out of the box nothing is stored anywhere — close the tab and the session is gone.
+
+To keep a practice history across devices, point the app at a
+[playkit](https://github.com/Chuyuyan/playkit) server:
+
+```sh
+echo "VITE_PLAYKIT_URL=https://your-playkit-host" > .env.local
+```
+
+Signed-in dancers get each camera-on session (longer than 10 seconds) recorded
+as duration, average match, and best match, with a running summary in the
+header. Signed-out dancers get the original behaviour exactly.
+
+There is deliberately **no leaderboard**: everyone practises a different video,
+so comparing your match score to someone else's would be meaningless.
+
+Only those aggregate numbers are transmitted. Pose detection, video, and camera
+frames stay on your machine.
 
 ## Stack
 

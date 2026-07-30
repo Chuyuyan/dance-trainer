@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import VideoPanel, { type TargetPose } from './components/VideoPanel'
 import WebcamPanel from './components/WebcamPanel'
+import AccountBar from './components/AccountBar'
 import { LEVEL_COLORS, SIDE_COLORS } from './pose/skeleton'
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
           {src ? 'Change video' : 'Load video'}
           <input type="file" accept="video/*" hidden onChange={(e) => loadFile(e.target.files?.[0])} />
         </label>
+        <AccountBar />
       </header>
 
       <main className="panels">
@@ -58,8 +60,8 @@ export default function App() {
             <div className="drop-inner">
               <p>Drop a dance video here, or load one from the top right</p>
               <p className="hint">
-                Solo or group video · click a dancer to follow them · everything runs locally, nothing is
-                uploaded
+                Solo or group video · click a dancer to follow them · pose detection runs locally, your
+                video is never uploaded
               </p>
             </div>
           </section>
