@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
-import { computeAngles, compareAngles, levelConnectionColors } from '../pose/angles'
+import { computeAngles, compareToHistory, levelConnectionColors } from '../pose/angles'
+
+/** Whether to mirror the comparison; 'auto' follows the reference's facing. */
+type MirrorMode = 'auto' | 'mirror' | 'direct'
 import type { TargetPose } from './VideoPanel'
 import { recordSession } from '../playkitClient'
 
@@ -19,8 +22,9 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
   const landmarkerRef = useRef<PoseLandmarker | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const emaRef = useRef<number | null>(null)
+  const lagRef = useRef<number | null>(null)
   const lastUiRef = useRef(0)
-  const mirrorCompareRef = useRef(true)
+  const mirrorModeRef = useRef<MirrorMode>('auto')
 
   // Aggregates for the practice session, so a signed-in dancer keeps a history
   // instead of a number that vanishes when the camera stops.
@@ -29,11 +33,13 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
   const [running, setRunning] = useState(false)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mirrorCompare, setMirrorCompare] = useState(true)
+  const [mirrorMode, setMirrorMode] = useState<MirrorMode>('auto')
+  const [mirroredNow, setMirroredNow] = useState(true)
   const [score, setScore] = useState<number | null>(null)
+  const [lag, setLag] = useState<number | null>(null)
   const [problems, setProblems] = useState<string[]>([])
 
-  mirrorCompareRef.current = mirrorCompare
+  mirrorModeRef.current = mirrorMode
 
   useEffect(() => {
     return () => {
@@ -116,19 +122,27 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
       ctx.clearRect(0, 0, cv.width, cv.height)
 
       const pose = res.landmarks[0]
-      const target = targetRef.current.angles
+      const target = targetRef.current
       let frameScore: number | null = null
       let frameProblems: string[] = []
+      let frameLag: number | null = null
       if (pose) {
         const user = computeAngles(pose, cv.width / cv.height)
-        const cmp = compareAngles(user, target, mirrorCompareRef.current)
+        // You always face your own camera, so mirroring is only right when the
+        // reference dancer faces theirs.
+        const mirrored =
+          mirrorModeRef.current === 'auto'
+            ? target.facing !== 'back'
+            : mirrorModeRef.current === 'mirror'
+        const cmp = compareToHistory(user, target.history, target.time, mirrored)
         drawSkeleton(ctx, pose, cv.width, cv.height, {
           color: LEVEL_COLORS.na,
           lineWidth: 7,
-          connectionColors: target ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
+          connectionColors: target.angles ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
         })
         frameScore = cmp.score
         frameProblems = cmp.problems
+        frameLag = cmp.lag
       }
 
       if (frameScore !== null) {
@@ -142,11 +156,23 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
       } else {
         emaRef.current = null
       }
+      // Lag is smoothed hard: it is a tendency worth naming, not a per-frame
+      // number, and a twitchy readout would be unusable mid-dance.
+      if (frameLag !== null) {
+        lagRef.current = lagRef.current === null ? frameLag : lagRef.current * 0.9 + frameLag * 0.1
+      }
+
       const now = performance.now()
       if (now - lastUiRef.current > 200) {
         lastUiRef.current = now
         setScore(emaRef.current === null ? null : Math.round(emaRef.current))
         setProblems(frameProblems)
+        setLag(lagRef.current)
+        setMirroredNow(
+          mirrorModeRef.current === 'auto'
+            ? targetRef.current.facing !== 'back'
+            : mirrorModeRef.current === 'mirror',
+        )
       }
     }
     raf = requestAnimationFrame(loop)
@@ -175,6 +201,11 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
           <div className="score-badge">
             <span className="score-num">{score ?? '—'}</span>
             <span className="score-label">match</span>
+            {lag !== null && (
+              <span className="score-lag">
+                {lag < 0.15 ? 'in time' : `${lag.toFixed(1)}s behind`}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -186,13 +217,24 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
               Stop camera
             </button>
           )}
-          <button
-            className={`btn ${mirrorCompare ? 'active' : ''}`}
-            onClick={() => setMirrorCompare(!mirrorCompare)}
-            title="Compare as if facing a mirror — your left hand matches the dancer's right"
-          >
-            Mirror compare
-          </button>
+          <span className="ctrl-label">Sides</span>
+          {(
+            [
+              ['auto', 'Auto', 'Mirror only when the reference dancer faces the camera'],
+              ['mirror', 'Mirror', 'Your left hand matches the dancer’s right'],
+              ['direct', 'Direct', 'Same side as the dancer — for tutorials filmed from behind'],
+            ] as const
+          ).map(([mode, label, tip]) => (
+            <button
+              key={mode}
+              className={`btn ${mirrorMode === mode ? 'active' : ''}`}
+              onClick={() => setMirrorMode(mode)}
+              title={tip}
+            >
+              {label}
+              {mode === 'auto' && mirrorMode === 'auto' ? (mirroredNow ? ' · mirrored' : ' · direct') : ''}
+            </button>
+          ))}
         </div>
         <div className="ctrl-group problems">
           {running && problems.length > 0 && (

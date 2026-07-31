@@ -186,6 +186,14 @@ header .sub {
   color: var(--muted);
 }
 
+.score-lag {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+
 .transport {
   display: flex;
   align-items: center;

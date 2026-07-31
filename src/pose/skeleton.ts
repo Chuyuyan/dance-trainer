@@ -245,6 +245,28 @@ export function cropForHand(
   return clampCrop({ x: cx - size / 2, y: cy - size / 2, size }, vw, vh)
 }
 
+export type Facing = 'front' | 'back'
+
+/**
+ * Whether the dancer faces the camera or away from it.
+ *
+ * A person facing you has their anatomical left on your right, so the left
+ * shoulder lands at a greater image x than the right one; turned away, the
+ * order flips. This decides whether the comparison should mirror: dance
+ * tutorials are routinely filmed from behind precisely so you can copy the
+ * moves directly, and mirroring those turns every asymmetric move into an
+ * error. Returns null when the dancer is side-on and the cue is meaningless.
+ */
+export function facing(lm: NormalizedLandmark[]): Facing | null {
+  const ls = lm[LM.lShoulder]
+  const rs = lm[LM.rShoulder]
+  if (!visible(ls) || !visible(rs)) return null
+  const dx = ls.x - rs.x
+  // Too narrow to call — the shoulders are edge-on to the camera.
+  if (Math.abs(dx) < 0.03) return null
+  return dx > 0 ? 'front' : 'back'
+}
+
 /** Torso centroid in normalized coords, or null if the torso isn't visible. */
 export function poseCenter(lm: NormalizedLandmark[]): [number, number] | null {
   const pts = [LM.lShoulder, LM.rShoulder, LM.lHip, LM.rHip].filter((i) => visible(lm[i]))

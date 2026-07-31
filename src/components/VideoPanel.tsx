@@ -17,11 +17,21 @@ import {
   unproject,
   type CropBox,
 } from '../pose/skeleton'
-import { computeAngles, type JointAngles } from '../pose/angles'
+import { computeAngles, type JointAngles, type TargetFrame } from '../pose/angles'
+import { facing, type Facing } from '../pose/skeleton'
 
 export interface TargetPose {
   angles: JointAngles | null
+  /** Recent reference frames, oldest first, so scoring can tolerate lag. */
+  history: TargetFrame[]
+  /** Current video time in seconds. */
+  time: number
+  /** Which way the reference dancer is facing, or null when side-on. */
+  facing: Facing | null
 }
+
+/** Video seconds of lag the comparison will forgive. */
+const LAG_WINDOW_S = 1
 
 interface Props {
   src: string
@@ -350,7 +360,20 @@ export default function VideoPanel({ src, targetRef }: Props) {
       if (selected) {
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
         drawSkeleton(ctx, selected, vw, vh, { lineWidth: 7, sideColors: SIDE_COLORS })
-        targetRef.current.angles = computeAngles(selected, aspect)
+        const angles = computeAngles(selected, aspect)
+        const target = targetRef.current
+        target.angles = angles
+        target.time = v.currentTime
+        // Side-on frames report nothing; hold the last confident reading.
+        target.facing = facing(selected) ?? target.facing
+
+        // A seek or a loop makes earlier frames meaningless as "what they were
+        // copying a moment ago", so the window restarts.
+        const hist = target.history
+        const last = hist[hist.length - 1]
+        if (last && (v.currentTime < last.t || v.currentTime > last.t + LAG_WINDOW_S)) hist.length = 0
+        hist.push({ t: v.currentTime, angles })
+        while (hist.length > 1 && hist[0].t < v.currentTime - LAG_WINDOW_S) hist.shift()
       } else {
         targetRef.current.angles = null
       }

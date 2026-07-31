@@ -64,8 +64,14 @@ export interface Comparison {
   problems: string[]
 }
 
-const OK_DEG = 20
-const WARN_DEG = 45
+/**
+ * Thresholds are deliberately loose. Two-dimensional joint angles carry real
+ * noise — landmark jitter, body proportions, camera height — and a learner who
+ * is told "wrong" for a 20-degree difference stops trusting the feedback, which
+ * costs more than the precision is worth.
+ */
+const OK_DEG = 25
+const WARN_DEG = 50
 const MAX_DEG = 90
 
 export function compareAngles(user: JointAngles, target: JointAngles | null, mirrored: boolean): Comparison {
@@ -92,6 +98,54 @@ export function compareAngles(user: JointAngles, target: JointAngles | null, mir
     levels,
     problems: errs.slice(0, 3).map((e) => e.label),
   }
+}
+
+/** One frame of the reference, kept so the comparison can tolerate lag. */
+export interface TargetFrame {
+  /** Video time in seconds. */
+  t: number
+  angles: JointAngles
+}
+
+export interface TimedComparison extends Comparison {
+  /**
+   * How far behind the reference the best match was, in video seconds.
+   * Null when there was nothing to compare against.
+   */
+  lag: number | null
+}
+
+/**
+ * Scores the dancer against a window of recent reference frames rather than
+ * the single current one.
+ *
+ * Someone learning a routine is always behind it — they watch, then react, then
+ * move. Comparing frame to frame punishes that delay as if it were the wrong
+ * move, which is both wrong and discouraging: at ordinary tempo a third of a
+ * second is already a different pose. Searching back over the last second finds
+ * the pose they are actually copying, which separates "wrong shape" from
+ * "right shape, late" — and the delay is worth reporting in its own right.
+ */
+export function compareToHistory(
+  user: JointAngles,
+  history: TargetFrame[],
+  now: number,
+  mirrored: boolean,
+): TimedComparison {
+  if (!history.length) return { ...compareAngles(user, null, mirrored), lag: null }
+  let best: Comparison | null = null
+  let bestAt = now
+  // Newest first, so an equally good older match never wins over a fresh one.
+  for (let i = history.length - 1; i >= 0; i--) {
+    const c = compareAngles(user, history[i].angles, mirrored)
+    if (c.score == null) continue
+    if (!best || c.score > best.score!) {
+      best = c
+      bestAt = history[i].t
+    }
+  }
+  if (!best) return { ...compareAngles(user, null, mirrored), lag: null }
+  return { ...best, lag: Math.max(0, now - bestAt) }
 }
 
 /** Map per-joint levels onto per-connection colors for drawSkeleton. */

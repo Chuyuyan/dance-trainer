@@ -29,7 +29,7 @@ export default function App() {
   const [stats, setStats] = useState<Map<string, VideoStats>>(new Map())
   const [current, setCurrent] = useState<LibraryEntry | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
-  const targetRef = useRef<TargetPose>({ angles: null })
+  const targetRef = useRef<TargetPose>({ angles: null, history: [], time: 0, facing: null })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {

@@ -28,7 +28,9 @@ Accounts are optional and off by default (see [Accounts](#accounts-optional)); w
 
 - Your skeleton, live from the webcam
 - Compared with the reference frame by frame **by joint angle**, with the skeleton coloured by how far off each joint is: green matching, yellow a bit off, red way off, grey not compared
-- A smoothed match score, plus a prompt naming the joints that are furthest off
+- A smoothed match score, plus how far **behind the beat** you are — being late is reported as timing, not scored as a wrong move
+- A prompt naming the joints that are furthest off
+- *Sides*: Auto works out whether the reference dancer faces the camera and mirrors only when it should, so tutorials filmed from behind are not marked wrong
 - This side deliberately does **not** colour by left and right. Colour is spent on the more useful signal, and two colour languages on one skeleton would collide.
 
 ## Running it
@@ -135,6 +137,50 @@ have been working on; the video is not there, and the entry says so.
 Practice sessions now carry the video's id, which is what lets the list show
 per-dance totals instead of one global number.
 
+### Scoring has to forgive lag, or it calls every learner wrong
+
+The first version compared your pose to the reference's pose *in the same
+frame*. That is indefensible for the thing this app is for: someone learning a
+routine is always behind it — you watch, you react, you move — and at ordinary
+tempo a third of a second is already a different shape. So doing the move
+correctly, slightly late, scored as doing it wrong. Tested on a real body the
+verdict was exactly that: hard to keep up, and it keeps saying you are wrong.
+
+Now the reference keeps a rolling one-second window of frames, and your pose is
+scored against the best match in it. What you were copying a moment ago is in
+that window, so the delay stops being counted as a mistake — and the size of
+the delay becomes its own readout, which is the more useful coaching note:
+*right shape, 0.4s behind* rather than an unexplained red limb.
+
+Simulated on a synthetic routine, comparing the same movement performed late:
+
+| lag | old score | new score | reported |
+| --- | --- | --- | --- |
+| 0.1s | 92 | 100 | 0.10s |
+| 0.3s | 76 | 100 | 0.30s |
+| 0.5s | 63 | 100 | 0.50s |
+| 0.8s | 52 | 100 | 0.80s |
+
+A genuinely wrong pose still scores 29 against the whole window, so this buys
+tolerance without making everything green.
+
+Thresholds were loosened too (25/50 degrees rather than 20/45). Two-dimensional
+angles carry real noise — landmark jitter, body proportions, camera height —
+and a learner told "wrong" over 20 degrees stops believing the feedback, which
+costs more than the precision is worth.
+
+### Mirroring is detected, not assumed
+
+Dance tutorials are routinely filmed from behind so you can copy directly.
+Mirroring those turns every asymmetric move into an error, and mirroring was
+previously on by default.
+
+Facing is now read off the pose: someone facing the camera has their anatomical
+left at a greater image x than their right, and turned away the order flips. So
+*Auto* mirrors only when the reference dancer faces their camera — you always
+face yours. Side-on frames report nothing and hold the last confident reading.
+Manual *Mirror* and *Direct* remain for when it guesses wrong.
+
 ### Things that bite
 
 - A paused or freshly seeked `<video>` can upload as an empty frame to WebGL. Draw it to a 2D canvas first.
@@ -146,7 +192,8 @@ per-dance totals instead of one global number.
 
 - In a group video, dancers who overlap heavily or swap places can send the lock to the wrong person. Click again to fix it.
 - The score reads eight joints in two dimensions only. It has no wrist orientation, body facing or depth, so side-on and turning movements are judged loosely.
-- Scoring is frame by frame with no time alignment (DTW), so being off the beat is counted as being off the move.
+- Lag is forgiven up to one second of video time; past that you are scored as out of sync, which at that point you are. The window is in video time, so practising at 0.25x speed forgives four times as much wall-clock delay.
+- Timing is only ever reported as *behind*. Being consistently early is rare enough when learning that it is not worth the readout, and the reference has no future frames to compare against anyway.
 - Fingers are shown on the Reference side only and **do not affect the score** — there are no finger terms in the angle comparison. Fast hand movement drops frames, and hands that are occluded or motion-blurred are simply not found.
 - The left and right colours are the **dancer's own** left and right. With Mirror on, their left hand appears on your right, which is the point of mirroring: move the limb on the same side of the screen.
 
