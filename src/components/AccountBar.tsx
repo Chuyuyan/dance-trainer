@@ -21,6 +21,7 @@ export default function AccountBar() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -149,6 +150,7 @@ export default function AccountBar() {
             required
           />
           {error && <p className="account-error">{error}</p>}
+          {notice && <p className="account-notice">{notice}</p>}
           <div className="account-actions">
             <button className="account-submit" type="submit" disabled={busy}>
               {busy ? '…' : mode === 'register' ? 'Create account' : 'Sign in'}
@@ -157,6 +159,25 @@ export default function AccountBar() {
               Cancel
             </button>
           </div>
+          <button
+            type="button"
+            className="account-link"
+            onClick={async () => {
+              setError('')
+              setNotice('')
+              if (!email) { setError('Enter your email first.'); return }
+              try {
+                await playkit!.requestPasswordReset(email)
+                // Worded the same either way: the server does not reveal
+                // whether the address has an account, and nor should this.
+                setNotice('If that address has an account, a reset link is on its way.')
+              } catch (err) {
+                setError((err as Error)?.message || 'Could not send a reset link.')
+              }
+            }}
+          >
+            Forgot your password?
+          </button>
           <p className="account-note">Optional. Only practice numbers are stored — never video.</p>
         </form>
       )}

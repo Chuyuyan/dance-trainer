@@ -595,3 +595,5 @@ footer {
 }
 .account-or::before,
 .account-or::after { content: ''; flex: 1; height: 1px; background: var(--panel-border); }
+
+.account-notice { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ok); }
