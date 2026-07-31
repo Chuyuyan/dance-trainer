@@ -4,7 +4,7 @@
 #
 
 app = 'dance-trainer'
-primary_region = 'ams'
+primary_region = 'yyz'
 
 [build]
 
