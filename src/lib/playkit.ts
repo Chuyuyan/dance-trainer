@@ -269,3 +269,93 @@ export function createPlaykit(options: PlaykitOptions) {
 }
 
 export type Playkit = ReturnType<typeof createPlaykit>;
+
+/* ------------------------------------------------------------------ */
+/* Google sign-in                                                      */
+/* ------------------------------------------------------------------ */
+
+const GSI_SRC = 'https://accounts.google.com/gsi/client';
+let gsiPromise: Promise<void> | null = null;
+
+/** Loads Google Identity Services once, no matter how many callers ask. */
+function loadGoogleIdentity(): Promise<void> {
+  if (gsiPromise) return gsiPromise;
+
+  gsiPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GSI_SRC}"]`);
+    if (existing) {
+      if ((window as any).google?.accounts?.id) return resolve();
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Google script failed to load')));
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = GSI_SRC;
+    s.async = true;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Google script failed to load'));
+    document.head.appendChild(s);
+  });
+
+  return gsiPromise;
+}
+
+export interface GoogleButtonOptions {
+  /** OAuth "Web application" client ID. Not a secret — it ships in the page. */
+  clientId: string;
+  /** Where to draw the button. */
+  container: HTMLElement;
+  /** Called with the signed-in user once playkit has verified the token. */
+  onSignedIn: (user: PlaykitUser) => void;
+  onError?: (err: unknown) => void;
+  theme?: 'outline' | 'filled_black' | 'filled_blue';
+  size?: 'small' | 'medium' | 'large';
+  width?: number;
+}
+
+/**
+ * Renders Google's sign-in button and completes the exchange with playkit.
+ *
+ * Google hands the browser an ID token, which the server verifies against
+ * Google's public keys — so nothing secret lives in the page and there is no
+ * redirect flow to get wrong. Resolves to false when Google can't be reached
+ * (offline, blocked, no client ID), so callers can just hide the button.
+ */
+export async function mountGoogleButton(
+  pk: Playkit,
+  opts: GoogleButtonOptions,
+): Promise<boolean> {
+  if (!opts.clientId) return false;
+  try {
+    await loadGoogleIdentity();
+  } catch {
+    return false;
+  }
+
+  const google = (window as any).google;
+  if (!google?.accounts?.id) return false;
+
+  google.accounts.id.initialize({
+    client_id: opts.clientId,
+    callback: async (response: { credential?: string }) => {
+      if (!response?.credential) return;
+      try {
+        opts.onSignedIn(await pk.loginWithGoogle(response.credential));
+      } catch (err) {
+        opts.onError?.(err);
+      }
+    },
+  });
+
+  google.accounts.id.renderButton(opts.container, {
+    type: 'standard',
+    theme: opts.theme ?? 'filled_black',
+    size: opts.size ?? 'large',
+    text: 'continue_with',
+    shape: 'rectangular',
+    width: opts.width ?? 220,
+  });
+
+  return true;
+}
