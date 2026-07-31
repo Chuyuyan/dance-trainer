@@ -42,8 +42,24 @@ export default function App() {
     setLibrary(await listLibrary())
   }, [])
 
-  /** Pulls anything the account knows that this device does not. */
+  /** Reconciles this device with the account, in both directions. */
   const syncFromAccount = useCallback(async () => {
+    // Push first. Most people play for a while and only sign up once they like
+    // it, so by the time an account exists the library already has entries in
+    // it — and pulling alone would silently strand every one of them on this
+    // device. syncLibrary is a no-op while signed out.
+    const local = await listLibrary()
+    if (local.length) {
+      await syncLibrary(
+        local.map((e) => ({
+          id: e.id,
+          name: e.name,
+          duration: e.duration,
+          lastOpenedAt: e.lastOpenedAt,
+        })),
+      )
+    }
+
     const [sessions, remote] = await Promise.all([loadSessions(), loadLibraryIndex()])
     setStats(statsByVideo(sessions))
     if (remote.length) {
