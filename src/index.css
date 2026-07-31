@@ -289,6 +289,157 @@ header .sub {
   max-width: 360px;
 }
 
+/* Library */
+
+.library-panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.library {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.dropzone .library {
+  margin-top: 18px;
+  width: min(680px, 78vw);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.library-item {
+  position: relative;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: #1b2238;
+  transition: border-color 0.15s;
+}
+
+.library-item:hover {
+  border-color: var(--cyan);
+}
+
+.library-item.is-current {
+  border-color: var(--cyan);
+  background: rgba(67, 232, 255, 0.12);
+}
+
+.library-item.is-missing .library-thumb img {
+  opacity: 0.4;
+}
+
+.library-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+}
+
+.library-thumb {
+  position: relative;
+  flex: none;
+  width: 68px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #05070d;
+}
+
+.library-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.library-thumb-blank {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1b2238, #2a3350);
+}
+
+.library-time {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.library-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-sub {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-forget {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  font-size: 14px;
+  color: var(--muted);
+  background: rgba(10, 14, 28, 0.8);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.library-item:hover .library-forget {
+  opacity: 1;
+}
+
+.library-forget:hover {
+  color: var(--bad);
+}
+
+.library-note {
+  margin-top: 10px;
+}
+
+.library-empty {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 footer {
   display: flex;
   flex-wrap: wrap;

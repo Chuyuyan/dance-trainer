@@ -10,8 +10,21 @@ const baseUrl = import.meta.env.VITE_PLAYKIT_URL ?? ''
 
 export const accountsEnabled = Boolean(baseUrl)
 
+type AuthListener = (user: PlaykitUser | null) => void
+const authListeners = new Set<AuthListener>()
+
+/** Lets the library refresh itself when someone signs in or out. */
+export function onAuthChange(fn: AuthListener): () => void {
+  authListeners.add(fn)
+  return () => authListeners.delete(fn)
+}
+
 export const playkit = accountsEnabled
-  ? createPlaykit({ baseUrl, gameId: 'dance-trainer' })
+  ? createPlaykit({
+      baseUrl,
+      gameId: 'dance-trainer',
+      onAuthChange: (user) => authListeners.forEach((fn) => fn(user)),
+    })
   : null
 
 /** Google OAuth client ID. Public by design — it ships inside the bundle. */
@@ -28,10 +41,50 @@ export interface PracticeSession {
   averageMatch: number
   /** Best smoothed match reached, 0–100. */
   bestMatch: number
+  /** Which dance this was, so the library can show per-video progress. */
+  videoId?: string
+  videoName?: string
+}
+
+/**
+ * What the cloud knows about a dance: enough to list it and show progress on
+ * another device, and deliberately nothing more. The file stays on the machine
+ * that opened it.
+ */
+export interface LibraryMeta {
+  id: string
+  name: string
+  duration?: number
+  lastOpenedAt?: number
 }
 
 export interface PracticeSave {
   sessions: PracticeSession[]
+  library?: LibraryMeta[]
+}
+
+/**
+ * Read-modify-write against the single save blob. Everything that syncs goes
+ * through here so two features can never race each other's version.
+ */
+async function updateSave(mutate: (save: PracticeSave) => PracticeSave): Promise<void> {
+  if (!playkit || !playkit.isSignedIn) return
+  try {
+    const existing = await playkit.loadProgress<PracticeSave>()
+    const current: PracticeSave = existing?.data ?? { sessions: [] }
+    await playkit.saveProgress(mutate({ sessions: current.sessions ?? [], library: current.library }), existing?.version)
+  } catch {
+    // Practice data is a bonus; never let a failed sync surface mid-session.
+  }
+}
+
+async function readSave(): Promise<PracticeSave | null> {
+  if (!playkit || !playkit.isSignedIn) return null
+  try {
+    return (await playkit.loadProgress<PracticeSave>())?.data ?? null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -42,25 +95,58 @@ export interface PracticeSave {
  * value of an account here is your own history, across devices.
  */
 export async function recordSession(session: PracticeSession): Promise<void> {
-  if (!playkit || !playkit.isSignedIn) return
-  try {
-    const existing = await playkit.loadProgress<PracticeSave>()
-    const sessions = existing?.data?.sessions ?? []
-    await playkit.saveProgress(
-      { sessions: [...sessions, session].slice(-100) },
-      existing?.version,
-    )
-  } catch {
-    // Practice data is a bonus; never let a failed sync surface mid-session.
-  }
+  await updateSave((save) => ({
+    ...save,
+    sessions: [...save.sessions, session].slice(-200),
+  }))
 }
 
 export async function loadSessions(): Promise<PracticeSession[]> {
-  if (!playkit || !playkit.isSignedIn) return []
-  try {
-    const existing = await playkit.loadProgress<PracticeSave>()
-    return existing?.data?.sessions ?? []
-  } catch {
-    return []
+  return (await readSave())?.sessions ?? []
+}
+
+/** Publishes the local library's index — names and timings, never footage. */
+export async function syncLibrary(entries: LibraryMeta[]): Promise<void> {
+  if (!entries.length) return
+  await updateSave((save) => {
+    const merged = new Map((save.library ?? []).map((e) => [e.id, e]))
+    for (const entry of entries) {
+      const prev = merged.get(entry.id)
+      merged.set(entry.id, {
+        ...entry,
+        lastOpenedAt: Math.max(entry.lastOpenedAt ?? 0, prev?.lastOpenedAt ?? 0),
+      })
+    }
+    return {
+      ...save,
+      library: [...merged.values()]
+        .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
+        .slice(0, 100),
+    }
+  })
+}
+
+export async function loadLibraryIndex(): Promise<LibraryMeta[]> {
+  return (await readSave())?.library ?? []
+}
+
+export interface VideoStats {
+  seconds: number
+  bestMatch: number
+  sessions: number
+}
+
+/** Practice totals per dance, for the library list. */
+export function statsByVideo(sessions: PracticeSession[]): Map<string, VideoStats> {
+  const out = new Map<string, VideoStats>()
+  for (const s of sessions) {
+    if (!s.videoId) continue
+    const cur = out.get(s.videoId) ?? { seconds: 0, bestMatch: 0, sessions: 0 }
+    out.set(s.videoId, {
+      seconds: cur.seconds + s.seconds,
+      bestMatch: Math.max(cur.bestMatch, s.bestMatch),
+      sessions: cur.sessions + 1,
+    })
   }
+  return out
 }

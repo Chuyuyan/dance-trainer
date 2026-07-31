@@ -8,9 +8,12 @@ import { recordSession } from '../playkitClient'
 
 interface Props {
   targetRef: React.MutableRefObject<TargetPose>
+  /** Which dance is loaded, so practice is filed against it in the library. */
+  videoId?: string
+  videoName?: string
 }
 
-export default function WebcamPanel({ targetRef }: Props) {
+export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const landmarkerRef = useRef<PoseLandmarker | null>(null)
@@ -77,6 +80,8 @@ export default function WebcamPanel({ targetRef }: Props) {
         seconds,
         averageMatch: Math.round(s.sum / s.count),
         bestMatch: Math.round(s.best),
+        videoId,
+        videoName,
       })
     }
     sessionRef.current = { startedAt: 0, sum: 0, count: 0, best: 0 }

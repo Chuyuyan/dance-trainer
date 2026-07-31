@@ -22,6 +22,7 @@ Accounts are optional and off by default (see [Accounts](#accounts-optional)); w
   - **Follow** — keeps the dancer centred, for footage where they travel
 - Group video: click a dancer to lock onto them
 - *Fingers* — overlays a 21-point hand skeleton (off by default, see below)
+- **Library** — every video you open is remembered, with a poster frame, so the next session is one click away instead of another trip through the file picker
 
 **You panel**
 
@@ -106,6 +107,34 @@ It costs two extra inference passes per frame, so it is a toggle, off by default
 
 **Separate landmarker instances** — a VIDEO-mode tracker carries internal state across frames, so feeding one instance different framings corrupts its predictions, visibly, as a scrambled skeleton. Whole-frame pose, cropped pose, left hand and right hand each get their own instance, each with its own monotonically increasing timestamps.
 
+### The library keeps videos, not uploads them
+
+Opening a video adds it to a library: poster frame, duration, when you last
+danced it, and — signed in — how long you have practised it and your best match.
+
+The constraint that shapes the whole design is that **the footage cannot go to a
+server**. That is the promise the rest of the app makes, so the library keeps
+files in IndexedDB on the device, and an account syncs only the index: names,
+durations, recency, and practice totals. On a second device you see what you
+have been working on; the video is not there, and the entry says so.
+
+- Files are identified by name, size and modification time, hashed. Hashing the
+  contents would be exact, but it means streaming a whole video just to notice
+  you have opened it before. The weaker key is enough to recognise the same file
+  and cheap enough to run on every load.
+- Metadata and footage live in **separate object stores**, so listing the
+  library never pulls hundreds of megabytes off disk to render a few rows.
+- Video is big and quota is finite, so a single file over 300 MB is indexed but
+  not stored, and older footage is dropped once the library passes ~1.5 GB or 12
+  videos. **Records are never dropped** — an entry whose file is gone shows *not
+  on this device* and re-links itself, thumbnail and history intact, the next
+  time you pick that file.
+- Everything degrades to the old behaviour: if IndexedDB is unavailable or the
+  quota is refused, the app still plays the video, it just does not remember it.
+
+Practice sessions now carry the video's id, which is what lets the list show
+per-dance totals instead of one global number.
+
 ### Things that bite
 
 - A paused or freshly seeked `<video>` can upload as an empty frame to WebGL. Draw it to a 2D canvas first.
@@ -139,14 +168,18 @@ echo "VITE_PLAYKIT_URL=https://your-playkit-host" > .env.local
 ```
 
 Signed-in dancers get each camera-on session (longer than 10 seconds) recorded
-as duration, average match, and best match, with a running summary in the
-header. Signed-out dancers get the original behaviour exactly.
+as duration, average match, and best match — filed against the dance it belongs
+to, so the library shows per-video totals — with a running summary in the
+header. The library index syncs too, so the list of dances follows you; the
+video files do not. Signed-out dancers get the original behaviour exactly, and
+the library still works, just device-local.
 
 There is deliberately **no leaderboard**: everyone practises a different video,
 so comparing your match score to someone else's would be meaningless.
 
-Only those aggregate numbers are transmitted. Pose detection, video, and camera
-frames stay on your machine.
+Only those aggregate numbers and the library index (names, durations, recency)
+are transmitted. Pose detection, video files, and camera frames stay on your
+machine.
 
 ## Stack
 
