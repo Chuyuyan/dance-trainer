@@ -22,6 +22,12 @@ COPY . .
 ARG VITE_PLAYKIT_URL=""
 ENV VITE_PLAYKIT_URL=$VITE_PLAYKIT_URL
 
+# Google sign-in. The client ID is public (it ships in the bundle), but it must
+# be declared here — Docker silently ignores a --build-arg with no matching ARG,
+# and Vite then inlines an empty string and drops the whole button as dead code.
+ARG VITE_GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 RUN npm run build
 
 # ---- Serve ----
