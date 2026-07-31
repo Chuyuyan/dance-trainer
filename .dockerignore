@@ -1,9 +1,11 @@
 fly.toml
 
-# Keep the build context small: node_modules and dist are produced inside the
-# image by `npm ci` and `npm run build`.
+# Produced inside the image: node_modules by `npm ci`, dist by `npm run build`,
+# and the MediaPipe wasm/models by the postinstall script.
 node_modules
 dist
+public/wasm
+public/models
 .git
 .github
 .env

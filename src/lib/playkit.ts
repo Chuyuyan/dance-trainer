@@ -40,26 +40,33 @@ export interface LeaderboardEntry {
   score: number;
 }
 
+// Fields are declared and assigned explicitly rather than using constructor
+// parameter properties: that shorthand emits real code, so it is rejected by
+// projects compiled with `erasableSyntaxOnly` (and by Node's native type
+// stripping). Keeping the SDK free of non-erasable syntax lets any game drop it
+// in regardless of its TypeScript settings.
+
 /** Thrown for any non-2xx response, carrying the server's message. */
 export class PlaykitError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code: string,
-  ) {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(message: string, status: number, code: string) {
     super(message);
     this.name = 'PlaykitError';
+    this.status = status;
+    this.code = code;
   }
 }
 
 /** A save was rejected because the server has newer data. */
 export class SaveConflictError extends PlaykitError {
-  constructor(
-    message: string,
-    readonly currentVersion: number,
-  ) {
+  readonly currentVersion: number;
+
+  constructor(message: string, currentVersion: number) {
     super(message, 409, 'version_conflict');
     this.name = 'SaveConflictError';
+    this.currentVersion = currentVersion;
   }
 }
 

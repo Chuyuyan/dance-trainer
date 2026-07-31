@@ -7,7 +7,11 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# scripts/ has to land before `npm ci`: postinstall runs setup-assets.mjs,
+# which copies the MediaPipe WASM runtime out of node_modules and downloads the
+# pose models into public/.
 COPY package.json package-lock.json ./
+COPY scripts ./scripts
 RUN npm ci
 
 COPY . .
