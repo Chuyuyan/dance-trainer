@@ -29,7 +29,8 @@ Accounts are optional and off by default (see [Accounts](#accounts-optional)); w
 - Your skeleton, live from the webcam
 - Compared with the reference frame by frame **by joint angle**, with the skeleton coloured by how far off each joint is: green matching, yellow a bit off, red way off, grey not compared
 - A smoothed match score, plus how far **behind the beat** you are — being late is reported as timing, not scored as a wrong move
-- A prompt naming the joints that are furthest off
+- A prompt naming the joints that are furthest off, head turn included
+- Landmarks are filtered, so standing still gives a still skeleton and a steady score
 - *Sides*: Auto works out whether the reference dancer faces the camera and mirrors only when it should, so tutorials filmed from behind are not marked wrong
 - This side deliberately does **not** colour by left and right. Colour is spent on the more useful signal, and two colour languages on one skeleton would collide.
 
@@ -181,6 +182,52 @@ left at a greater image x than their right, and turned away the order flips. So
 face yours. Side-on frames report nothing and hold the last confident reading.
 Manual *Mirror* and *Direct* remain for when it guesses wrong.
 
+### Holding still should look still
+
+Pose estimation runs independently on every frame, so a body standing
+motionless still produces landmarks that wander a few pixels. On screen that
+reads as the skeleton twitching while you stand there, and it makes the match
+score fidget for no reason — which is worse than cosmetic, because it leaves
+you unsure whether you actually did something wrong.
+
+A moving average would remove it and add lag, which is precisely what this app
+cannot spend after going to some trouble to stop treating lag as error. So the
+landmarks go through a [One Euro
+filter](https://gery.casiez.net/1euro/) instead: its cutoff rises with the
+speed of the signal, so a still limb is smoothed hard and a fast one is barely
+touched.
+
+Parameters were picked by sweeping against a simulated limb with
+landmark-scale noise rather than by eye. Beta is the lever that matters:
+
+| minCutoff | beta | still jitter | lag while moving |
+| --- | --- | --- | --- |
+| 0.5 | 1.5 | 0.00020 | 62ms |
+| 0.5 | 6 | 0.00023 | 29ms |
+| **0.5** | **12** | **0.00026** | **19ms** |
+| 1.5 | 12 | 0.00054 | 17ms |
+
+Unfiltered still jitter is 0.00240, so the chosen setting removes about 89% of
+it for 19ms of tracking lag. Both panels are filtered — the reference jitters
+for the same reason, and its noise feeds straight into the target angles.
+
+### Head turn
+
+Where the head is pointing is part of choreography, so it is tracked, drawn as
+a stub from the head towards the nose, and scored like any other joint.
+
+Yaw comes from where the nose sits between the ears. The first attempt
+normalised the nose's offset by the ear span and read it as a sine, which is
+wrong and saturated near 45 degrees: the span itself shrinks as the head turns.
+Offset grows as sin(yaw) while half the span shrinks as cos(yaw), so the ratio
+is a **tangent** — `atan2(offset, halfSpan)` is exact across the full range and
+degrades gracefully into profile, where the ears converge and the span-based
+guard would have thrown the answer away. Verified exact at every 15 degrees
+from -90 to +90 and invariant to frame aspect.
+
+Mirroring negates head turn rather than swapping it with the opposite side, the
+way limbs are handled.
+
 ### Things that bite
 
 - A paused or freshly seeked `<video>` can upload as an empty frame to WebGL. Draw it to a 2D canvas first.
@@ -191,7 +238,8 @@ Manual *Mirror* and *Direct* remain for when it guesses wrong.
 ## Known limits
 
 - In a group video, dancers who overlap heavily or swap places can send the lock to the wrong person. Click again to fix it.
-- The score reads eight joints in two dimensions only. It has no wrist orientation, body facing or depth, so side-on and turning movements are judged loosely.
+- The score reads eight joints plus head turn, in two dimensions only. It has no wrist orientation, body facing or depth, so side-on and turning movements are judged loosely.
+- Head yaw is inferred from nose and ear landmarks, which MediaPipe infers rather than sees once the head turns far. Treat it as a direction, not a measurement.
 - Lag is forgiven up to one second of video time; past that you are scored as out of sync, which at that point you are. The window is in video time, so practising at 0.25x speed forgives four times as much wall-clock delay.
 - Timing is only ever reported as *behind*. Being consistently early is rare enough when learning that it is not worth the readout, and the reference has no future frames to compare against anyway.
 - Fingers are shown on the Reference side only and **do not affect the score** — there are no finger terms in the angle comparison. Fast hand movement drops frames, and hands that are occluded or motion-blurred are simply not found.

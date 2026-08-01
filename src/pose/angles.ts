@@ -26,6 +26,43 @@ export const JOINTS: JointDef[] = [
 
 export type JointAngles = Record<string, number | null>
 
+/** Key for the head's yaw inside a JointAngles map. */
+export const HEAD = 'head'
+export const HEAD_LABEL = 'head turn'
+
+/**
+ * Which way the head is turned, in degrees: 0 looking straight at the camera,
+ * positive turned towards their own left, +-90 in full profile.
+ *
+ * Derived from where the nose sits between the ears. Facing forward it is
+ * centred; as the head turns, it slides towards the ear it is turning
+ * towards, reaching that ear in profile — so the offset over the half-span
+ * approximates the sine of the yaw. Ear landmarks are inferred rather than
+ * seen once the head turns far, which is why this is treated as a coarse
+ * direction and not a precise measurement.
+ */
+export function headYaw(lm: NormalizedLandmark[], aspect: number): number | null {
+  const nose = lm[LM.nose]
+  const le = lm[LM.lEar]
+  const re = lm[LM.rEar]
+  if (!vis(nose) || !vis(le) || !vis(re)) return null
+  const ex = (le.x - re.x) * aspect
+  const ey = le.y - re.y
+  const span = Math.hypot(ex, ey)
+  // Half the ear span shrinks as cos(yaw); the nose's offset from their
+  // midpoint grows as sin(yaw). The ratio is therefore a tangent, not a sine —
+  // normalising by the span alone saturates long before the head is in profile.
+  const half = span / 2
+  const mx = ((le.x + re.x) / 2) * aspect
+  const my = (le.y + re.y) / 2
+  const offset =
+    span < 1e-6 ? nose.x * aspect - mx : (((nose.x * aspect) - mx) * ex + (nose.y - my) * ey) / span
+  // In full profile the ears converge, so guard on the head's overall scale
+  // rather than the span, which is exactly what vanishes there.
+  if (Math.hypot(offset, half) < 1e-4) return null
+  return (Math.atan2(offset, half) * 180) / Math.PI
+}
+
 const VIS_MIN = 0.4
 
 function vis(lm: NormalizedLandmark) {
@@ -53,6 +90,7 @@ function angleAt(lm: NormalizedLandmark[], a: number, b: number, c: number, aspe
 export function computeAngles(lm: NormalizedLandmark[], aspect: number): JointAngles {
   const out: JointAngles = {}
   for (const j of JOINTS) out[j.name] = angleAt(lm, j.a, j.b, j.c, aspect)
+  out[HEAD] = headYaw(lm, aspect)
   return out
 }
 
@@ -92,6 +130,21 @@ export function compareAngles(user: JointAngles, target: JointAngles | null, mir
     n++
     if (err >= OK_DEG) errs.push({ label: j.label, err })
   }
+  // Head turn is a signed direction, so mirroring negates it rather than
+  // swapping it with the joint on the other side.
+  const uh = user[HEAD]
+  const thRaw = target?.[HEAD]
+  const th = thRaw == null ? null : mirrored ? -thRaw : thRaw
+  if (uh == null || th == null) {
+    levels[HEAD] = 'na'
+  } else {
+    const err = Math.abs(uh - th)
+    levels[HEAD] = err < OK_DEG ? 'ok' : err < WARN_DEG ? 'warn' : 'bad'
+    sum += 1 - Math.min(err, MAX_DEG) / MAX_DEG
+    n++
+    if (err >= OK_DEG) errs.push({ label: HEAD_LABEL, err })
+  }
+
   errs.sort((a, b) => b.err - a.err)
   return {
     score: n > 0 ? Math.round((sum / n) * 100) : null,

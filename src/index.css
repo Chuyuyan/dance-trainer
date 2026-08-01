@@ -515,68 +515,6 @@ footer {
 }
 .account-link:hover { color: var(--cyan); }
 
-.account-form {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 230px;
-  padding: 14px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
-}
-
-.account-tabs { display: flex; gap: 4px; }
-
-.account-tab {
-  flex: 1;
-  padding: 5px;
-  font: inherit;
-  font-size: 11px;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  cursor: pointer;
-}
-.account-tab.is-on {
-  color: var(--cyan);
-  background: var(--bg);
-  border-color: var(--panel-border);
-}
-
-.account-input {
-  padding: 7px 9px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 7px;
-}
-.account-input:focus { outline: none; border-color: var(--cyan); }
-
-.account-actions { display: flex; align-items: center; gap: 8px; }
-
-.account-submit {
-  flex: 1;
-  padding: 7px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--bg);
-  background: var(--cyan);
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-}
-.account-submit:disabled { opacity: 0.6; cursor: default; }
-
 .account-error { margin: 0; font-size: 11px; color: var(--bad); }
 .account-note { margin: 2px 0 0; font-size: 10px; color: var(--muted); }
 
@@ -597,3 +535,64 @@ footer {
 .account-or::after { content: ''; flex: 1; height: 1px; background: var(--panel-border); }
 
 .account-notice { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ok); }
+
+/* ── Sign-in dialog ──────────────────────────────────────────────── */
+.acct-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 20px;
+  background: rgba(5, 8, 14, .72); backdrop-filter: blur(3px);
+  animation: acctFade .18s ease;
+}
+@keyframes acctFade { from { opacity: 0; } }
+
+.acct-dialog {
+  width: 100%; max-width: 340px; padding: 24px 22px 18px;
+  background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: 18px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+  animation: acctRise .22s cubic-bezier(.2, 1, .4, 1);
+}
+@keyframes acctRise { from { opacity: 0; transform: translateY(10px); } }
+
+.acct-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.acct-sub { margin: 6px 0 16px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+.acct-google { display: flex; justify-content: center; }
+.acct-google:empty { display: none; }
+
+.acct-or {
+  display: flex; align-items: center; gap: 8px; margin: 14px 0;
+  font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+}
+.acct-or::before, .acct-or::after { content: ''; flex: 1; height: 1px; background: var(--panel-border); }
+
+.acct-form { display: flex; flex-direction: column; gap: 8px; }
+
+.acct-input {
+  padding: 9px 11px; font: inherit; font-size: 13px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--panel-border); border-radius: 10px;
+}
+.acct-input:focus { outline: none; border-color: var(--cyan); }
+
+.acct-error { margin: 0; font-size: 11px; color: var(--bad); }
+.acct-notice { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ok); }
+
+.acct-primary {
+  margin-top: 2px; padding: 10px; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--bg); background: var(--cyan); border: none; border-radius: 10px; cursor: pointer;
+}
+.acct-primary:disabled { opacity: .6; cursor: default; }
+
+.acct-switch { margin: 12px 0 0; font-size: 11px; color: var(--muted); text-align: center; }
+
+.acct-link {
+  padding: 0; font: inherit; font-size: 11px; color: var(--cyan);
+  background: none; border: none; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+
+.acct-skip {
+  width: 100%; margin-top: 14px; padding: 8px; font: inherit; font-size: 12px;
+  color: var(--muted); background: none; border: none;
+  border-top: 1px solid var(--panel-border); cursor: pointer;
+}
+.acct-skip:hover { color: var(--text); }

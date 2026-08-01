@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
-import { computeAngles, compareToHistory, levelConnectionColors } from '../pose/angles'
+import { computeAngles, compareToHistory, levelConnectionColors, HEAD } from '../pose/angles'
+import { LandmarkSmoother } from '../pose/filter'
 
 /** Whether to mirror the comparison; 'auto' follows the reference's facing. */
 type MirrorMode = 'auto' | 'mirror' | 'direct'
@@ -23,6 +24,7 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
   const emaRef = useRef<number | null>(null)
   const lagRef = useRef<number | null>(null)
+  const smootherRef = useRef(new LandmarkSmoother())
   const lastUiRef = useRef(0)
   const mirrorModeRef = useRef<MirrorMode>('auto')
 
@@ -96,8 +98,11 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
     emaRef.current = null
+    lagRef.current = null
+    smootherRef.current.reset()
     setRunning(false)
     setScore(null)
+    setLag(null)
     setProblems([])
     const cv = canvasRef.current
     cv?.getContext('2d')?.clearRect(0, 0, cv.width, cv.height)
@@ -121,7 +126,10 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
       const ctx = cv.getContext('2d')!
       ctx.clearRect(0, 0, cv.width, cv.height)
 
-      const pose = res.landmarks[0]
+      const raw = res.landmarks[0]
+      // Steady the landmarks before anything reads them, so a body holding
+      // still produces a still skeleton and a steady score.
+      const pose = raw ? smootherRef.current.filter(raw, performance.now() / 1000) : undefined
       const target = targetRef.current
       let frameScore: number | null = null
       let frameProblems: string[] = []
@@ -139,6 +147,7 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
           color: LEVEL_COLORS.na,
           lineWidth: 7,
           connectionColors: target.angles ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
+          headColor: target.angles ? LEVEL_COLORS[cmp.levels[HEAD] ?? 'na'] : undefined,
         })
         frameScore = cmp.score
         frameProblems = cmp.problems

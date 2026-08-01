@@ -19,6 +19,7 @@ import {
 } from '../pose/skeleton'
 import { computeAngles, type JointAngles, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
+import { LandmarkSmoother } from '../pose/filter'
 
 export interface TargetPose {
   angles: JointAngles | null
@@ -120,6 +121,7 @@ export default function VideoPanel({ src, targetRef }: Props) {
   const fitFramesRef = useRef(0)
   const fitStartRef = useRef(0)
   const lastPoseRef = useRef<NormalizedLandmark[] | null>(null)
+  const smootherRef = useRef(new LandmarkSmoother())
   // Separate instances: a VIDEO-mode tracker keeps internal state per stream,
   // so feeding one both whole frames and crops corrupts its predictions.
   const fullLmkRef = useRef<PoseLandmarker | null>(null)
@@ -228,6 +230,7 @@ export default function VideoPanel({ src, targetRef }: Props) {
     lockRef.current = null
     missRef.current = 0
     lastPoseRef.current = null
+    smootherRef.current.reset()
     zoomRef.current = [1, 0, 0]
     framedRef.current = null
     zoomTargetRef.current = null
@@ -240,6 +243,8 @@ export default function VideoPanel({ src, targetRef }: Props) {
     setPersonCount(0)
     setLocked(false)
     targetRef.current.angles = null
+    targetRef.current.history = []
+    targetRef.current.facing = null
   }, [src, targetRef])
 
   useEffect(() => {
@@ -314,7 +319,8 @@ export default function VideoPanel({ src, targetRef }: Props) {
           cropAtPoint(click[0], click[1], vw, vh)
         // Give the crop tracker a few frames to converge on the new framing.
         settleRef.current = 8
-        // Different dancer, so anything we learned about the framing is stale.
+        // Different dancer, so anything we learned about them is stale.
+        smootherRef.current.reset()
         framedRef.current = null
         zoomTargetRef.current = null
         fitFrozenRef.current = false
@@ -358,6 +364,9 @@ export default function VideoPanel({ src, targetRef }: Props) {
         drawSkeleton(ctx, p, vw, vh, { color: 'rgba(255,255,255,0.3)', lineWidth: 3, glow: false })
       }
       if (selected) {
+        // The reference jitters for the same reason the webcam does, and its
+        // noise feeds straight into the target angles.
+        selected = smootherRef.current.filter(selected, performance.now() / 1000)
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
         drawSkeleton(ctx, selected, vw, vh, { lineWidth: 7, sideColors: SIDE_COLORS })
         const angles = computeAngles(selected, aspect)

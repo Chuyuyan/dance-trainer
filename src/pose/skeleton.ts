@@ -94,6 +94,8 @@ export interface DrawOptions {
   connectionColors?: Map<string, string>
   /** Color each segment by which half of the body it belongs to. */
   sideColors?: Record<Side, string>
+  /** Overrides the head circle and nose stub, for match feedback. */
+  headColor?: string
 }
 
 export function drawSkeleton(
@@ -139,15 +141,31 @@ export function drawSkeleton(
     r = lineWidth * 2.2
   }
   if (cx !== null) {
-    ctx.strokeStyle = sideColors?.center ?? color
+    const headColor = opts.headColor ?? sideColors?.center ?? color
+    ctx.strokeStyle = headColor
     ctx.lineWidth = lineWidth
     if (glow) {
-      ctx.shadowColor = color
+      ctx.shadowColor = headColor
       ctx.shadowBlur = lineWidth * 2
     }
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
     ctx.stroke()
+
+    // A stub towards the nose, so which way the head is turned is visible at
+    // a glance rather than implied by a circle that looks the same either way.
+    const nose = lm[LM.nose]
+    if (visible(nose)) {
+      const dx = nose.x * w - cx
+      const dy = nose.y * h - cy
+      const len = Math.hypot(dx, dy)
+      if (len > 1) {
+        ctx.beginPath()
+        ctx.moveTo(cx, cy)
+        ctx.lineTo(cx + (dx / len) * r * 1.6, cy + (dy / len) * r * 1.6)
+        ctx.stroke()
+      }
+    }
   }
 
   // Joint dots
