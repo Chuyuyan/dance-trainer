@@ -7,6 +7,17 @@ app = 'dance-trainer'
 primary_region = 'yyz'
 
 [build]
+  # Accounts are baked in at build time, and the Dockerfile defaults both of
+  # these to empty. Left to the command line, a plain `fly deploy` builds a
+  # site whose sign-in has silently vanished: the page loads, the account bar
+  # is simply gone, and nothing anywhere reports an error. Declaring them here
+  # makes that failure impossible to reach by forgetting a flag.
+  #
+  # Neither value is a secret. The Google client ID is public by design — it
+  # ships inside the bundle either way — and the other is just a hostname.
+  [build.args]
+    VITE_PLAYKIT_URL = "https://playkit.fly.dev"
+    VITE_GOOGLE_CLIENT_ID = "813381372044-482hc5987g820f217iq4hlnvkibvp4mg.apps.googleusercontent.com"
 
 [http_service]
   internal_port = 8080

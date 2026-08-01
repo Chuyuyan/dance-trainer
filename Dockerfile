@@ -17,7 +17,9 @@ RUN npm ci
 COPY . .
 
 # Accounts are opt-in and baked in at build time. Left empty the app runs
-# entirely locally with no network calls; pass it to enable practice history:
+# entirely locally with no network calls. This deployment's values live in
+# fly.toml under [build.args] so that a plain `fly deploy` cannot quietly ship
+# a build with sign-in missing; override per-build with:
 #   fly deploy --build-arg VITE_PLAYKIT_URL=https://your-playkit-host
 ARG VITE_PLAYKIT_URL=""
 ENV VITE_PLAYKIT_URL=$VITE_PLAYKIT_URL

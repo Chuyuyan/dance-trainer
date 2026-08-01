@@ -269,6 +269,14 @@ header. The library index syncs too, so the list of dances follows you; the
 video files do not. Signed-out dancers get the original behaviour exactly, and
 the library still works, just device-local.
 
+These are build-time values, inlined by Vite, so a deployment needs them at
+image build time rather than at runtime. For the Fly deployment they live in
+`fly.toml` under `[build.args]` rather than being passed on the command line —
+the Dockerfile defaults them to empty, so a `fly deploy` that forgot the flags
+used to ship a site whose sign-in had silently disappeared: page loads, account
+bar gone, nothing logged anywhere. Neither value is a secret; the Google client
+ID is public by design and ships in the bundle regardless.
+
 There is deliberately **no leaderboard**: everyone practises a different video,
 so comparing your match score to someone else's would be meaningless.
 
