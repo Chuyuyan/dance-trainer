@@ -1,5 +1,6 @@
 // Vendored from the playkit SDK — do not edit here.
 // Source: playkit/sdk/src/index.ts
+// Re-sync with: npm run vendor  (in playkit/sdk)
 /**
  * playkit browser SDK
  *
@@ -74,6 +75,31 @@ export function createPlaykit(options: PlaykitOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, '');
   const { gameId } = options;
 
+  // A purely local note that this browser has signed in before. Without it,
+  // `restore()` would call the server on every single page load — including for
+  // players who have never made an account and never will, which is most of
+  // them. It carries no authority: forging it only buys you a 401, because the
+  // httpOnly refresh cookie is what actually proves anything.
+  //
+  // The trade-off: clearing site data but keeping cookies makes a real session
+  // look absent. That combination is rare, and signing in again fixes it.
+  const hintKey = `playkit_seen:${baseUrl}`;
+  function setSessionHint(on: boolean) {
+    try {
+      if (on) localStorage.setItem(hintKey, '1');
+      else localStorage.removeItem(hintKey);
+    } catch {
+      // Private mode or blocked storage: fall back to always asking the server.
+    }
+  }
+  function hasSessionHint(): boolean {
+    try {
+      return localStorage.getItem(hintKey) === '1';
+    } catch {
+      return true;
+    }
+  }
+
   // The access token is kept in memory only. It is short-lived, and keeping it
   // out of localStorage means an XSS bug cannot walk off with a durable
   // credential — the long-lived refresh token is an httpOnly cookie the page's
@@ -123,11 +149,14 @@ export function createPlaykit(options: PlaykitOptions) {
           if (!res.ok) {
             accessToken = null;
             setUser(null);
+            // The cookie is gone or spent; stop asking on every future load.
+            setSessionHint(false);
             return false;
           }
           const body = await res.json();
           accessToken = body.accessToken;
           setUser(body.user);
+          setSessionHint(true);
           return true;
         } catch {
           return false;
@@ -161,6 +190,7 @@ export function createPlaykit(options: PlaykitOptions) {
     const body = await parse(res);
     accessToken = body.accessToken;
     setUser(body.user);
+    setSessionHint(true);
     return body.user as PlaykitUser;
   }
 
@@ -175,8 +205,12 @@ export function createPlaykit(options: PlaykitOptions) {
     /**
      * Call once on load. Silently resumes a session from a previous visit
      * (using the refresh cookie) and returns the user, or null if not signed in.
+     *
+     * Costs nothing for a player who has never signed in on this browser: it
+     * returns without touching the network at all.
      */
     async restore(): Promise<PlaykitUser | null> {
+      if (!hasSessionHint()) return null;
       await refresh();
       return currentUser;
     },
@@ -223,6 +257,7 @@ export function createPlaykit(options: PlaykitOptions) {
       } finally {
         accessToken = null;
         setUser(null);
+        setSessionHint(false);
       }
     },
 
