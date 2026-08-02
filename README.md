@@ -12,6 +12,43 @@ Video and webcam frames are processed **entirely in the browser** — neither yo
 
 Accounts are optional and off by default (see [Accounts](#accounts-optional)); when enabled, the only thing stored is aggregate practice numbers — how long you practised and how closely you matched.
 
+## Why this exists
+
+Learning a dance from a video means pausing, scrubbing back, and guessing why it
+still looks wrong. A mirror tells you what you are doing but not what you should
+be doing; the video tells you the opposite. Neither tells you *which limb* is off.
+
+So the app puts both on screen and scores them against each other per limb. That
+turns out to be mostly a set of problems that have nothing to do with dancing:
+
+- **A learner is always late.** Scoring frame against frame calls a correct move
+  wrong simply because it landed 200 ms behind, so the comparison has to search a
+  small time window before it decides you missed.
+- **Group videos have several skeletons**, and the one you are following keeps
+  walking behind someone else — so a chosen dancer has to be tracked, not
+  re-detected.
+- **Mirroring cannot be assumed.** Some videos are already mirrored, some are
+  not, and telling a learner to move the wrong arm is worse than saying nothing.
+- **Holding still should look still.** Raw landmarks jitter, and a skeleton that
+  shivers reads as "you are wrong" when you are not.
+
+Each of those is worked through in [How it works](#how-it-works).
+
+The other constraint was that dance video is personal — someone's rehearsal
+footage, or their living room. Nothing is uploaded: pose detection, the video,
+and the camera all stay on the machine.
+
+## Tech stack
+
+| Layer | Tools |
+| --- | --- |
+| Pose | MediaPipe Tasks Vision, in-browser via WASM |
+| UI | React 19, TypeScript, Vite |
+| Rendering | Canvas 2D overlays over `<video>` |
+| Storage | IndexedDB for the local video library — files never leave the device |
+| Accounts | [playkit](https://github.com/Chuyuyan/playkit) SDK, optional and off by default |
+| Smoothing | 1 Euro filter (see [Holding still](#holding-still-should-look-still)) |
+
 ## What it does
 
 **Reference panel**
@@ -292,4 +329,5 @@ machine.
 
 ## Stack
 
-React 19, TypeScript, Vite, MediaPipe Tasks Vision, Canvas 2D. No backend.
+See [Tech stack](#tech-stack) at the top. In short: React 19, TypeScript, Vite,
+MediaPipe Tasks Vision, Canvas 2D — and no backend of its own.
