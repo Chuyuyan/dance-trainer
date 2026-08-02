@@ -1,5 +1,11 @@
 # Dance Trainer
 
+<p align="center">
+  <img src="docs/hero.png" alt="Reference video and your webcam side by side, with per-limb match colouring." width="820">
+</p>
+
+<p align="center"><a href="https://dance-trainer.fly.dev"><b>Try it in your browser</b></a></p>
+
 Turn any dance video into a practice room: skeleton overlay, mirror, slow motion, A-B loop, and a webcam view that shows you where you are off.
 
 Video and webcam frames are processed **entirely in the browser** — neither your video nor your camera feed is ever uploaded. By default the app makes no requests to any server of mine at all.
