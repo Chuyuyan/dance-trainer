@@ -75,29 +75,38 @@ export function createPlaykit(options: PlaykitOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, '');
   const { gameId } = options;
 
-  // A purely local note that this browser has signed in before. Without it,
-  // `restore()` would call the server on every single page load — including for
-  // players who have never made an account and never will, which is most of
-  // them. It carries no authority: forging it only buys you a 401, because the
-  // httpOnly refresh cookie is what actually proves anything.
+  // A local note about what the last `restore()` found, so that a player who is
+  // reading a page, reloading, and wandering around does not re-ask the auth
+  // server every single time. It carries no authority whatsoever: forging it
+  // buys a 401, because the httpOnly refresh cookie is the only real proof.
   //
-  // The trade-off: clearing site data but keeping cookies makes a real session
-  // look absent. That combination is rare, and signing in again fixes it.
+  // Why "no" expires instead of sticking: the cookie is shared across every
+  // game on this playkit, but localStorage is not — it is per-origin. Someone
+  // who signs up in one game and then opens another has a valid session and an
+  // empty localStorage, and a permanent "no" would show them signed out
+  // forever. Asking again after a while is what keeps one account working
+  // across all the games, which is the entire point of sharing a backend.
   const hintKey = `playkit_seen:${baseUrl}`;
-  function setSessionHint(on: boolean) {
+  const NO_SESSION_TTL_MS = 60 * 60 * 1000;
+
+  function setSessionHint(signedIn: boolean) {
     try {
-      if (on) localStorage.setItem(hintKey, '1');
-      else localStorage.removeItem(hintKey);
+      localStorage.setItem(hintKey, signedIn ? 'yes' : `no:${Date.now() + NO_SESSION_TTL_MS}`);
     } catch {
-      // Private mode or blocked storage: fall back to always asking the server.
+      // Private mode or blocked storage: fall back to always asking.
     }
   }
-  function hasSessionHint(): boolean {
+
+  /** False only while a recent "not signed in" answer is still trustworthy. */
+  function worthAsking(): boolean {
+    let hint: string | null = null;
     try {
-      return localStorage.getItem(hintKey) === '1';
+      hint = localStorage.getItem(hintKey);
     } catch {
       return true;
     }
+    if (!hint?.startsWith('no:')) return true;
+    return Date.now() >= Number(hint.slice(3));
   }
 
   // The access token is kept in memory only. It is short-lived, and keeping it
@@ -149,7 +158,7 @@ export function createPlaykit(options: PlaykitOptions) {
           if (!res.ok) {
             accessToken = null;
             setUser(null);
-            // The cookie is gone or spent; stop asking on every future load.
+            // No cookie, or a spent one. Stop asking for a while.
             setSessionHint(false);
             return false;
           }
@@ -206,11 +215,11 @@ export function createPlaykit(options: PlaykitOptions) {
      * Call once on load. Silently resumes a session from a previous visit
      * (using the refresh cookie) and returns the user, or null if not signed in.
      *
-     * Costs nothing for a player who has never signed in on this browser: it
+     * Free for a player who was found to be signed out a moment ago: it
      * returns without touching the network at all.
      */
     async restore(): Promise<PlaykitUser | null> {
-      if (!hasSessionHint()) return null;
+      if (!worthAsking()) return null;
       await refresh();
       return currentUser;
     },
