@@ -34,7 +34,7 @@ export default function App() {
   const [current, setCurrent] = useState<LibraryEntry | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const targetRef = useRef<TargetPose>({
-    angles: null,
+    feature: null,
     history: [],
     time: 0,
     facing: null,

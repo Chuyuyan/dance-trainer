@@ -18,14 +18,14 @@ import {
   unproject,
   type CropBox,
 } from '../pose/skeleton'
-import { computeAngles, type JointAngles, type Landmark3, type TargetFrame } from '../pose/angles'
+import { computeAngles, type Landmark3, type PoseFeature, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
 import { LandmarkSmoother } from '../pose/filter'
 import SectionList from './SectionList'
 import { activeSection, newSectionId, type Section, type SectionStat } from '../lib/library'
 
 export interface TargetPose {
-  angles: JointAngles | null
+  feature: PoseFeature | null
   /** Which marked phrase the video is inside, so practice can be filed to it. */
   sectionId: string | null
   /** Recent reference frames, oldest first, so scoring can tolerate lag. */
@@ -260,7 +260,7 @@ export default function VideoPanel({
     setLoopB(null)
     setPersonCount(0)
     setLocked(false)
-    targetRef.current.angles = null
+    targetRef.current.feature = null
     targetRef.current.history = []
     targetRef.current.facing = null
   }, [src, targetRef])
@@ -391,9 +391,9 @@ export default function VideoPanel({
         selected = smootherRef.current.filter(selected, performance.now() / 1000)
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
         drawSkeleton(ctx, selected, vw, vh, { lineWidth: 7, sideColors: SIDE_COLORS })
-        const angles = selectedWorld ? computeAngles(selectedWorld) : null
+        const feature = selectedWorld ? computeAngles(selectedWorld) : null
         const target = targetRef.current
-        target.angles = angles
+        target.feature = feature
         target.time = v.currentTime
         target.sectionId = activeSection(sectionsRef.current, v.currentTime)?.id ?? null
         // Side-on frames report nothing; hold the last confident reading.
@@ -404,10 +404,10 @@ export default function VideoPanel({
         const hist = target.history
         const last = hist[hist.length - 1]
         if (last && (v.currentTime < last.t || v.currentTime > last.t + LAG_WINDOW_S)) hist.length = 0
-        if (angles) hist.push({ t: v.currentTime, angles })
+        if (feature) hist.push({ t: v.currentTime, feature })
         while (hist.length > 1 && hist[0].t < v.currentTime - LAG_WINDOW_S) hist.shift()
       } else {
-        targetRef.current.angles = null
+        targetRef.current.feature = null
       }
 
       // Fingers: search a small box anchored on each wrist rather than the

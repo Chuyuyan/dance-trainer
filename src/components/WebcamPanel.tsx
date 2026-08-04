@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
-import { computeAngles, compareToHistory, levelConnectionColors, HEAD } from '../pose/angles'
+import { computeAngles, compareToHistory, levelConnectionColors, HEAD, type LagState } from '../pose/angles'
 import { LandmarkSmoother } from '../pose/filter'
 
 /** Whether to mirror the comparison; 'auto' follows the reference's facing. */
@@ -44,6 +44,8 @@ export default function WebcamPanel({
   const streamRef = useRef<MediaStream | null>(null)
   const emaRef = useRef<number | null>(null)
   const lagRef = useRef<number | null>(null)
+  // The lag estimate persists between frames so it can settle.
+  const lagStateRef = useRef<LagState>({ lag: 0 })
   const smootherRef = useRef(new LandmarkSmoother())
   const lastUiRef = useRef(0)
   const mirrorModeRef = useRef<MirrorMode>('auto')
@@ -124,6 +126,7 @@ export default function WebcamPanel({
 
     emaRef.current = null
     lagRef.current = null
+    lagStateRef.current = { lag: 0 }
     smootherRef.current.reset()
     setRunning(false)
     setScore(null)
@@ -168,12 +171,12 @@ export default function WebcamPanel({
           mirrorModeRef.current === 'auto'
             ? target.facing !== 'back'
             : mirrorModeRef.current === 'mirror'
-        const cmp = compareToHistory(user, target.history, target.time, mirrored)
+        const cmp = compareToHistory(user, target.history, target.time, mirrored, lagStateRef.current)
         drawSkeleton(ctx, pose, cv.width, cv.height, {
           color: LEVEL_COLORS.na,
           lineWidth: 7,
-          connectionColors: target.angles ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
-          headColor: target.angles ? LEVEL_COLORS[cmp.levels[HEAD] ?? 'na'] : undefined,
+          connectionColors: target.feature ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
+          headColor: target.feature ? LEVEL_COLORS[cmp.levels[HEAD] ?? 'na'] : undefined,
         })
         frameScore = cmp.score
         frameProblems = cmp.problems
