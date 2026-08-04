@@ -46,6 +46,12 @@ export default function Checkup({ read, onClose }: Props) {
 
   const step = CHECK_STEPS[index]
 
+  // Held in a ref because the parent passes a new arrow on every render — as a
+  // dependency it restarted the countdown a few times a second, so a step could
+  // never finish and the check never advanced.
+  const readRef = useRef(read)
+  readRef.current = read
+
   useEffect(() => {
     if (phase !== 'settle') return
     bucket.current = { scores: [], errs: {}, framing: new Set() }
@@ -57,7 +63,7 @@ export default function Checkup({ read, onClose }: Props) {
   useEffect(() => {
     if (phase !== 'hold') return
     const tick = setInterval(() => {
-      const now = read()
+      const now = readRef.current()
       if (!now) return
       const cmp = compareAngles(now.feature, step.target, false)
       if (cmp.score != null) bucket.current.scores.push(cmp.score)
@@ -98,7 +104,7 @@ export default function Checkup({ read, onClose }: Props) {
       clearInterval(tick)
       clearTimeout(finish)
     }
-  }, [phase, index, read, step])
+  }, [phase, index, step])
 
   const report = [
     'Dance Trainer accuracy check',

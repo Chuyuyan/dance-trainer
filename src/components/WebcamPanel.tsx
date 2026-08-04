@@ -287,7 +287,7 @@ export default function WebcamPanel({
             ))}
           </div>
         )}
-        {running && checking && (
+        {import.meta.env.DEV && running && checking && (
           <div className="stage-overlay checkup-overlay">
             <Checkup read={() => latestRef.current} onClose={() => setChecking(false)} />
           </div>
@@ -312,7 +312,7 @@ export default function WebcamPanel({
               {T('Stop camera')}
             </button>
           )}
-          {running && !checking && (
+          {import.meta.env.DEV && running && !checking && (
             <button className="btn subtle" onClick={() => setChecking(true)} title={T('Follow a few poses so the scoring can be checked against known answers')}>
               {T('Check accuracy')}
             </button>
