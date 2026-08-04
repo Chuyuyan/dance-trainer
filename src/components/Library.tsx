@@ -1,4 +1,5 @@
 import { formatDuration, type LibraryEntry } from '../lib/library'
+import { T } from '../i18n'
 import type { VideoStats } from '../playkitClient'
 
 interface Props {
@@ -47,7 +48,7 @@ export default function Library({ entries, stats, currentId, onOpen, onForget, e
               <span className="library-meta">
                 <span className="library-name">{entry.name}</span>
                 <span className="library-sub">
-                  {missing ? 'not on this device' : when(entry.lastOpenedAt)}
+                  {missing ? T('not on this device') : when(entry.lastOpenedAt)}
                   {s ? ` · ${Math.max(1, Math.round(s.seconds / 60))} min · best ${s.bestMatch}` : ''}
                 </span>
               </span>
@@ -55,7 +56,7 @@ export default function Library({ entries, stats, currentId, onOpen, onForget, e
             <button
               className="library-forget"
               onClick={() => onForget(entry)}
-              title="Remove from library"
+              title={T('Remove from library')}
               aria-label={`Remove ${entry.name} from library`}
             >
               &times;

@@ -1,3 +1,4 @@
+import { T, L } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import { mountGoogleButton } from '../lib/playkit'
 import {
@@ -69,15 +70,15 @@ export default function AccountBar() {
           <>
             <span className="account-stats">
               {sessions.length > 0
-                ? `${sessions.length} session${sessions.length > 1 ? 's' : ''} · ${totalMinutes} min · best ${best}`
-                : 'No practice recorded yet'}
+                ? L(`${sessions.length} session${sessions.length > 1 ? 's' : ''} · ${totalMinutes} min · best ${best}`, `${sessions.length} 次练习 · ${totalMinutes} 分钟 · 最佳 ${best}`)
+                : T('No practice recorded yet')}
             </span>
             <span className="account-who">{user.displayName}</span>
-            <button className="account-link" onClick={signOut}>Sign out</button>
+            <button className="account-link" onClick={signOut}>{T('Sign out')}</button>
           </>
         ) : (
           ready && (
-            <button className="account-link" onClick={() => setOpen(true)}>Sign in</button>
+            <button className="account-link" onClick={() => setOpen(true)}>{T('Sign in')}</button>
           )
         )}
       </div>
@@ -124,7 +125,7 @@ function AccountDialog({
       clientId: googleClientId,
       container: googleSlot.current,
       onSignedIn: (u) => void onSignedIn(u),
-      onError: () => setError('Google sign-in failed. Try email instead.'),
+      onError: () => setError(T('Google sign-in failed. Try email instead.')),
       width: 260,
     }).then((ok) => { if (!cancelled) setGoogleReady(ok) })
     return () => { cancelled = true }
@@ -145,7 +146,7 @@ function AccountDialog({
         await playkit!.requestPasswordReset(email)
         // Worded the same either way — the server does not reveal whether the
         // address has an account, and nor should this.
-        setNotice('If that address has an account, a reset link is on its way.')
+        setNotice(T('If that address has an account, a reset link is on its way.'))
         return
       }
       const u =
@@ -154,7 +155,7 @@ function AccountDialog({
           : await playkit!.login(email, password)
       onSignedIn(u)
     } catch (err) {
-      setError((err as Error)?.message || 'Something went wrong. Try again.')
+      setError((err as Error)?.message || T('Something went wrong. Try again.'))
     } finally {
       setBusy(false)
     }
@@ -167,7 +168,7 @@ function AccountDialog({
     >
       <div className="acct-dialog" role="dialog" aria-modal="true" aria-label="Keep your practice history">
         <h2 className="acct-title">
-          {mode === 'forgot' ? 'Reset your password' : 'Keep your practice history'}
+          {T(mode === 'forgot' ? 'Reset your password' : 'Keep your practice history')}
         </h2>
         <p className="acct-sub">
           {mode === 'forgot'
@@ -187,7 +188,7 @@ function AccountDialog({
             ref={firstField}
             className="acct-input"
             type="email"
-            placeholder="Email"
+            placeholder={T('Email')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -197,7 +198,7 @@ function AccountDialog({
             <input
               className="acct-input"
               type="password"
-              placeholder="Password"
+              placeholder={T('Password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
@@ -212,10 +213,10 @@ function AccountDialog({
             {busy
               ? '…'
               : mode === 'register'
-                ? 'Create account'
+                ? T('Create account')
                 : mode === 'forgot'
-                  ? 'Send reset link'
-                  : 'Sign in'}
+                  ? T('Send reset link')
+                  : T('Sign in')}
           </button>
         </form>
 
@@ -228,14 +229,14 @@ function AccountDialog({
         )}
 
         <p className="acct-switch">
-          {mode === 'register' && 'Already have an account? '}
-          {mode === 'login' && 'New here? '}
+          {mode === 'register' && T('Already have an account? ')}
+          {mode === 'login' && T('New here? ')}
           <button
             type="button"
             className="acct-link"
             onClick={() => switchMode(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register')}
           >
-            {mode === 'register' ? 'Sign in' : mode === 'forgot' ? 'Back to sign in' : 'Create one'}
+            {T(mode === 'register' ? 'Sign in' : mode === 'forgot' ? 'Back to sign in' : 'Create one')}
           </button>
         </p>
 

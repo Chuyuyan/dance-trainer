@@ -1,3 +1,4 @@
+import { T } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
@@ -88,8 +89,8 @@ export default function WebcamPanel({
       console.error('webcam start failed', e)
       setError(
         e instanceof DOMException && e.name === 'NotAllowedError'
-          ? 'Camera permission denied — allow it in your browser settings'
-          : 'Could not start the camera',
+          ? T('Camera permission denied — allow it in your browser settings')
+          : T('Could not start the camera'),
       )
     } finally {
       setStarting(false)
@@ -235,7 +236,7 @@ export default function WebcamPanel({
     <section className="panel">
       <div className="panel-head">
         <h2>You</h2>
-        <span className="hint">{running ? 'Comparing live' : 'Turn on your camera to follow along'}</span>
+        <span className="hint">{T(running ? 'Comparing live' : 'Turn on your camera to follow along')}</span>
       </div>
 
       <div className="stage mirrored webcam-stage">
@@ -244,7 +245,7 @@ export default function WebcamPanel({
         {!running && (
           <div className="stage-overlay">
             <button className="btn primary" onClick={start} disabled={starting}>
-              {starting ? 'Starting…' : 'Turn on camera'}
+              {T(starting ? 'Starting…' : 'Turn on camera')}
             </button>
             {error && <p className="error">{error}</p>}
           </div>
@@ -272,9 +273,9 @@ export default function WebcamPanel({
           <span className="ctrl-label">Sides</span>
           {(
             [
-              ['auto', 'Auto', 'Mirror only when the reference dancer faces the camera'],
-              ['mirror', 'Mirror', 'Your left hand matches the dancer’s right'],
-              ['direct', 'Direct', 'Same side as the dancer — for tutorials filmed from behind'],
+              ['auto', T('Auto'), T('Mirror only when the reference dancer faces the camera')],
+              ['mirror', T('Mirror'), T('Your left hand matches the dancer’s right')],
+              ['direct', T('Direct'), T('Same side as the dancer — for tutorials filmed from behind')],
             ] as const
           ).map(([mode, label, tip]) => (
             <button

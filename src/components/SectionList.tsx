@@ -1,3 +1,4 @@
+import { T } from '../i18n'
 import type { Section, SectionStat } from '../lib/library'
 
 interface Props {
@@ -48,7 +49,7 @@ export default function SectionList({ sections, stats, activeId, onPlay, onRemov
                   value={section.name}
                   onChange={(e) => onRename(section, e.target.value)}
                   onClick={(e) => e.stopPropagation()}
-                  aria-label="Section name"
+                  aria-label={T('Section name')}
                 />
                 <span className="section-sub">
                   {clock(section.start)}–{clock(section.end)} ({(section.end - section.start).toFixed(1)}s)
@@ -60,7 +61,7 @@ export default function SectionList({ sections, stats, activeId, onPlay, onRemov
             <button
               className="section-remove"
               onClick={() => onRemove(section)}
-              title="Remove section"
+              title={T('Remove section')}
               aria-label={`Remove ${section.name}`}
             >
               &times;

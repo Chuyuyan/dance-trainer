@@ -3,6 +3,7 @@ import VideoPanel, { type TargetPose } from './components/VideoPanel'
 import WebcamPanel from './components/WebcamPanel'
 import AccountBar from './components/AccountBar'
 import Library from './components/Library'
+import { T, L, useLangTick, LangGlobe } from './i18n'
 import { LEVEL_COLORS, SIDE_COLORS } from './pose/skeleton'
 import {
   addSectionPractice,
@@ -147,23 +148,25 @@ export default function App() {
     await refresh()
   }
 
+  useLangTick()
   return (
     <div className="app">
+      <LangGlobe />
       <header>
         <h1>
-          Dance Trainer <span className="sub">Load any dance video and follow the outline</span>
+          Dance Trainer <span className="sub">{T('Load any dance video and follow the outline')}</span>
         </h1>
         {library.length > 0 && (
           <button
             className={`btn ${libraryOpen ? 'active' : ''}`}
             onClick={() => setLibraryOpen(!libraryOpen)}
-            title="Dances you have opened before"
+            title={T('Dances you have opened before')}
           >
-            Library ({library.length})
+            {L(`Library (${library.length})`, `舞蹈库（${library.length}）`)}
           </button>
         )}
         <label className="btn primary upload">
-          {src ? 'Change video' : 'Load video'}
+          {T(src ? 'Change video' : 'Load video')}
           <input
             ref={fileInputRef}
             type="file"
@@ -218,10 +221,9 @@ export default function App() {
             }}
           >
             <div className="drop-inner">
-              <p>Drop a dance video here, or load one from the top right</p>
+              <p>{T('Drop a dance video here, or load one from the top right')}</p>
               <p className="hint">
-                Solo or group video · click a dancer to follow them · pose detection runs locally, your
-                video is never uploaded
+                {T('Solo or group video · click a dancer to follow them · pose detection runs locally, your video is never uploaded')}
               </p>
               <Library
                 entries={library}
@@ -243,30 +245,30 @@ export default function App() {
 
       <footer>
         <span className="legend-group">
-          <span className="legend-title">Reference</span>
+          <span className="legend-title">{T('Reference')}</span>
           <span className="legend-item">
-            <i style={{ background: SIDE_COLORS.left }} /> dancer&rsquo;s left
+            <i style={{ background: SIDE_COLORS.left }} /> {T("dancer's left")}
           </span>
           <span className="legend-item">
-            <i style={{ background: SIDE_COLORS.right }} /> dancer&rsquo;s right
+            <i style={{ background: SIDE_COLORS.right }} /> {T("dancer's right")}
           </span>
           <span className="legend-item">
-            <i style={{ background: SIDE_COLORS.center }} /> torso
+            <i style={{ background: SIDE_COLORS.center }} /> {T('torso')}
           </span>
         </span>
         <span className="legend-group">
-          <span className="legend-title">You</span>
+          <span className="legend-title">{T('You')}</span>
           <span className="legend-item">
-            <i style={{ background: LEVEL_COLORS.ok }} /> matching
+            <i style={{ background: LEVEL_COLORS.ok }} /> {T('matching')}
           </span>
           <span className="legend-item">
-            <i style={{ background: LEVEL_COLORS.warn }} /> a bit off
+            <i style={{ background: LEVEL_COLORS.warn }} /> {T('a bit off')}
           </span>
           <span className="legend-item">
-            <i style={{ background: LEVEL_COLORS.bad }} /> way off
+            <i style={{ background: LEVEL_COLORS.bad }} /> {T('way off')}
           </span>
           <span className="legend-item">
-            <i style={{ background: LEVEL_COLORS.na }} /> not compared
+            <i style={{ background: LEVEL_COLORS.na }} /> {T('not compared')}
           </span>
         </span>
       </footer>

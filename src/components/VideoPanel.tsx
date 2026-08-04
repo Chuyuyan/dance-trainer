@@ -1,3 +1,4 @@
+import { T } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import type { HandLandmarker, NormalizedLandmark, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createHandLandmarker, createPoseLandmarker } from '../pose/landmarker'
@@ -649,13 +650,13 @@ export default function VideoPanel({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Reference</h2>
+        <h2>{T('Reference')}</h2>
         <span className="hint">
-          {modelState === 'loading' && 'Loading pose model…'}
-          {modelState === 'error' && 'Model failed to load — try reloading'}
-          {modelState === 'ready' && locked && 'Following one dancer · click another to switch'}
-          {modelState === 'ready' && !locked && personCount > 1 && 'Multiple dancers · click the one to follow'}
-          {modelState === 'ready' && !locked && personCount <= 1 && 'Click a dancer to lock on'}
+          {modelState === 'loading' && T('Loading pose model…')}
+          {modelState === 'error' && T('Model failed to load — try reloading')}
+          {modelState === 'ready' && locked && T('Following one dancer · click another to switch')}
+          {modelState === 'ready' && !locked && personCount > 1 && T('Multiple dancers · click the one to follow')}
+          {modelState === 'ready' && !locked && personCount <= 1 && T('Click a dancer to lock on')}
         </span>
       </div>
 
@@ -726,9 +727,9 @@ export default function VideoPanel({
             className={`btn ${handsOn ? 'active' : ''}`}
             onClick={() => void toggleHands()}
             disabled={handsLoading}
-            title="Track finger positions — costs an extra model pass per frame"
+            title={T('Track finger positions — costs an extra model pass per frame')}
           >
-            {handsLoading ? 'Loading…' : 'Fingers'}
+            {T(handsLoading ? 'Loading…' : 'Fingers')}
           </button>
           {locked && (
             <button
@@ -740,7 +741,7 @@ export default function VideoPanel({
                 resetFraming()
                 setLocked(false)
               }}
-              title="Go back to following whoever dominates the frame"
+              title={T('Go back to following whoever dominates the frame')}
             >
               Unlock
             </button>
@@ -751,9 +752,9 @@ export default function VideoPanel({
           <span className="ctrl-label">Zoom</span>
           {(
             [
-              ['off', 'Off', 'Show the whole frame'],
-              ['fit', 'Fit', 'Settle on a framing, then hold it — the shot stops moving'],
-              ['follow', 'Follow', 'Keep the dancer centred as they move around'],
+              ['off', T('Off'), T('Show the whole frame')],
+              ['fit', T('Fit'), T('Settle on a framing, then hold it — the shot stops moving')],
+              ['follow', T('Follow'), T('Keep the dancer centred as they move around')],
             ] as const
           ).map(([mode, label, tip]) => (
             <button
@@ -801,7 +802,7 @@ export default function VideoPanel({
         </div>
 
         <div className="ctrl-group">
-          <span className="ctrl-label">Sections</span>
+          <span className="ctrl-label">{T('Sections')}</span>
           <button
             className="btn"
             onClick={addSection}
@@ -809,10 +810,10 @@ export default function VideoPanel({
             title={
               canAddSection
                 ? `Mark ${fmt(sectionStart)}–${fmt(sectionEnd)} as a phrase`
-                : 'Play past the end of a phrase, then mark it'
+                : T('Play past the end of a phrase, then mark it')
             }
           >
-            Mark to here
+            {T('Mark to here')}
           </button>
         </div>
 
@@ -821,7 +822,7 @@ export default function VideoPanel({
             <span className="hint">
               {handCount > 0
                 ? `${handCount} hand${handCount > 1 ? 's' : ''} tracked`
-                : 'No hands found — try zooming in or locking on a dancer'}
+                : T('No hands found — try zooming in or locking on a dancer')}
             </span>
           </div>
         )}
