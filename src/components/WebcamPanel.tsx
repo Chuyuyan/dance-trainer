@@ -235,7 +235,7 @@ export default function WebcamPanel({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>You</h2>
+        <h2>{T('You')}</h2>
         <span className="hint">{T(running ? 'Comparing live' : 'Turn on your camera to follow along')}</span>
       </div>
 
@@ -267,32 +267,31 @@ export default function WebcamPanel({
         <div className="ctrl-group">
           {running && (
             <button className="btn" onClick={stop}>
-              Stop camera
+              {T('Stop camera')}
             </button>
           )}
-          <span className="ctrl-label">Sides</span>
-          {(
-            [
-              ['auto', T('Auto'), T('Mirror only when the reference dancer faces the camera')],
-              ['mirror', T('Mirror'), T('Your left hand matches the dancer’s right')],
-              ['direct', T('Direct'), T('Same side as the dancer — for tutorials filmed from behind')],
-            ] as const
-          ).map(([mode, label, tip]) => (
-            <button
-              key={mode}
-              className={`btn ${mirrorMode === mode ? 'active' : ''}`}
-              onClick={() => setMirrorMode(mode)}
-              title={tip}
-            >
-              {label}
-              {mode === 'auto' && mirrorMode === 'auto' ? (mirroredNow ? ' · mirrored' : ' · direct') : ''}
-            </button>
-          ))}
+          {/* Auto is right almost always, so this is one button that reports
+              what it decided rather than three that ask you to decide. */}
+          <button
+            className={`btn subtle ${mirrorMode === 'auto' ? '' : 'active'}`}
+            onClick={() =>
+              setMirrorMode(
+                mirrorMode === 'auto' ? 'mirror' : mirrorMode === 'mirror' ? 'direct' : 'auto',
+              )
+            }
+            title={T('Whether your left should mirror the dancer, or match their side. Auto reads which way they are facing.')}
+          >
+            {mirrorMode === 'auto'
+              ? `${T('Sides: auto')} · ${mirroredNow ? T('mirrored') : T('same side')}`
+              : mirrorMode === 'mirror'
+                ? T('Sides: mirrored')
+                : T('Sides: same side')}
+          </button>
         </div>
         <div className="ctrl-group problems">
           {running && problems.length > 0 && (
             <span className="hint">
-              Watch: <b>{problems.join(', ')}</b>
+              {T('Watch')}: <b>{problems.join('、')}</b>
             </span>
           )}
         </div>

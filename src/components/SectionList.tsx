@@ -21,10 +21,10 @@ function clock(t: number): string {
  * rather than a grade: the point is to see which phrase you have been avoiding.
  */
 function summary(stat: SectionStat | undefined): string {
-  if (!stat || !stat.samples) return 'not practised'
+  if (!stat || !stat.samples) return T('not practised')
   const minutes = stat.seconds / 60
   const time = minutes >= 1 ? `${Math.round(minutes)} min` : `${Math.round(stat.seconds)}s`
-  return `${time} · avg ${Math.round(stat.sumMatch / stat.samples)} · best ${Math.round(stat.bestMatch)}`
+  return `${time} · ${T('avg')} ${Math.round(stat.sumMatch / stat.samples)} · ${T('best')} ${Math.round(stat.bestMatch)}`
 }
 
 export default function SectionList({ sections, stats, activeId, onPlay, onRemove, onRename }: Props) {

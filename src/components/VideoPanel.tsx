@@ -174,6 +174,7 @@ export default function VideoPanel({
   const [handsLoading, setHandsLoading] = useState(false)
   const [handCount, setHandCount] = useState(0)
   const [zoomMode, setZoomMode] = useState<ZoomMode>('off')
+  const [more, setMore] = useState(false)
 
   handsOnRef.current = handsOn
   zoomModeRef.current = zoomMode
@@ -708,7 +709,7 @@ export default function VideoPanel({
 
       <div className="controls">
         <div className="ctrl-group">
-          <span className="ctrl-label">Speed</span>
+          <span className="ctrl-label">{T('Speed')}</span>
           {RATES.map((r) => (
             <button key={r} className={`btn ${rate === r ? 'active' : ''}`} onClick={() => setRateAndApply(r)}>
               {r}×
@@ -718,18 +719,19 @@ export default function VideoPanel({
 
         <div className="ctrl-group">
           <button className={`btn ${mirror ? 'active' : ''}`} onClick={() => setMirror(!mirror)}>
-            Mirror
-          </button>
-          <button className={`btn ${ghost ? 'active' : ''}`} onClick={() => setGhost(!ghost)}>
-            Outline only
+            {T('Mirror')}
           </button>
           <button
-            className={`btn ${handsOn ? 'active' : ''}`}
-            onClick={() => void toggleHands()}
-            disabled={handsLoading}
-            title={T('Track finger positions — costs an extra model pass per frame')}
+            className="btn"
+            onClick={addSection}
+            disabled={!canAddSection}
+            title={
+              canAddSection
+                ? `${T('Mark a phrase ending here')} (${fmt(sectionStart)}–${fmt(sectionEnd)})`
+                : T('Play past the end of a phrase, then mark it')
+            }
           >
-            {T(handsLoading ? 'Loading…' : 'Fingers')}
+            {T('Mark to here')}
           </button>
           {locked && (
             <button
@@ -743,13 +745,39 @@ export default function VideoPanel({
               }}
               title={T('Go back to following whoever dominates the frame')}
             >
-              Unlock
+              {T('Unlock')}
             </button>
           )}
+          <button
+            className={`btn subtle ${more ? 'active' : ''}`}
+            onClick={() => setMore(!more)}
+            title={T('Outline, fingers, zoom and A-B loop')}
+          >
+            {more ? T('Fewer options') : T('More options')}
+          </button>
+        </div>
+      </div>
+
+      {/* Everything below is occasionally useful and permanently in the way, so
+          it stays folded until asked for. */}
+      {more && (
+      <div className="controls controls-more">
+        <div className="ctrl-group">
+          <button className={`btn ${ghost ? 'active' : ''}`} onClick={() => setGhost(!ghost)}>
+            {T('Outline only')}
+          </button>
+          <button
+            className={`btn ${handsOn ? 'active' : ''}`}
+            onClick={() => void toggleHands()}
+            disabled={handsLoading}
+            title={T('Track finger positions — costs an extra model pass per frame')}
+          >
+            {T(handsLoading ? 'Loading…' : 'Fingers')}
+          </button>
         </div>
 
         <div className="ctrl-group">
-          <span className="ctrl-label">Zoom</span>
+          <span className="ctrl-label">{T('Zoom')}</span>
           {(
             [
               ['off', T('Off'), T('Show the whole frame')],
@@ -772,7 +800,7 @@ export default function VideoPanel({
         </div>
 
         <div className="ctrl-group">
-          <span className="ctrl-label">Loop</span>
+          <span className="ctrl-label">{T('Loop')}</span>
           <button
             className={`btn ${loopA !== null ? 'active' : ''}`}
             onClick={() => setLoopA(videoRef.current?.currentTime ?? 0)}
@@ -801,22 +829,6 @@ export default function VideoPanel({
           )}
         </div>
 
-        <div className="ctrl-group">
-          <span className="ctrl-label">{T('Sections')}</span>
-          <button
-            className="btn"
-            onClick={addSection}
-            disabled={!canAddSection}
-            title={
-              canAddSection
-                ? `Mark ${fmt(sectionStart)}–${fmt(sectionEnd)} as a phrase`
-                : T('Play past the end of a phrase, then mark it')
-            }
-          >
-            {T('Mark to here')}
-          </button>
-        </div>
-
         {handsOn && (
           <div className="ctrl-group">
             <span className="hint">
@@ -827,6 +839,7 @@ export default function VideoPanel({
           </div>
         )}
       </div>
+      )}
 
       <SectionList
         sections={sections}

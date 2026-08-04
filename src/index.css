@@ -158,7 +158,7 @@ header .sub {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(5, 7, 13, 0.6);
+  background: rgba(20, 17, 27, 0.66);
 }
 
 .error {
@@ -171,7 +171,7 @@ header .sub {
   top: 12px;
   right: 12px;
   text-align: center;
-  background: rgba(10, 14, 28, 0.75);
+  background: rgba(20, 17, 27, 0.78);
   border: 1px solid var(--panel-border);
   border-radius: 12px;
   padding: 8px 16px;
@@ -242,7 +242,7 @@ header .sub {
   font: inherit;
   font-size: 13px;
   color: var(--text);
-  background: #1b2238;
+  background: var(--panel-soft);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   padding: 6px 12px;
@@ -262,7 +262,7 @@ header .sub {
 
 .btn.primary {
   background: linear-gradient(135deg, #ff8fbe, var(--accent));
-  color: #06121a;
+  color: #241021;
   font-weight: 700;
   border: none;
   padding: 9px 18px;
@@ -275,6 +275,25 @@ header .sub {
 .btn.play {
   min-width: 42px;
   font-size: 15px;
+}
+
+/* Present but not shouting: for controls that are rarely the point. */
+.btn.subtle {
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn.subtle:hover {
+  color: var(--text);
+  border-color: var(--panel-border);
+}
+
+.controls-more {
+  padding-top: 2px;
+  margin-top: -4px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 10px;
 }
 
 .upload {
@@ -320,7 +339,7 @@ header .sub {
   align-items: stretch;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
-  background: #171e33;
+  background: var(--panel-soft);
   overflow: hidden;
 }
 
@@ -425,7 +444,7 @@ header .sub {
   position: relative;
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  background: #1b2238;
+  background: var(--panel-soft);
   transition: border-color 0.15s;
 }
 
@@ -478,7 +497,7 @@ header .sub {
   display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1b2238, #2a3350);
+  background: linear-gradient(135deg, #2b2436, #3a3049);
 }
 
 .library-time {
@@ -524,7 +543,7 @@ header .sub {
   line-height: 1;
   font-size: 14px;
   color: var(--muted);
-  background: rgba(10, 14, 28, 0.8);
+  background: rgba(20, 17, 27, 0.82);
   border: none;
   border-radius: 5px;
   cursor: pointer;

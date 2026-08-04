@@ -1,6 +1,32 @@
 // English -> Chinese dictionary. Keys must match source strings exactly;
 // anything missing simply renders in English (graceful fallback by design).
 export const ZH: Record<string, string> = {
+  'You': '你',
+  'Speed': '速度',
+  'Stop camera': '关闭摄像头',
+  'Watch': '注意',
+  'not practised': '还没练过',
+  'avg': '平均',
+  'best': '最好',
+  'Sections': '分段',
+  // controls
+  'Mirror': '镜像',
+  'Mark to here': '标记到这里',
+  'Mark a phrase ending here': '把这里作为一段的结尾',
+  'More options': '更多选项',
+  'Fewer options': '收起选项',
+  'Outline, fingers, zoom and A-B loop': '轮廓线、手指、缩放、AB 循环',
+  'Outline only': '只看轮廓',
+  'Unlock': '取消锁定',
+  'Loop': '循环',
+  'Zoom': '缩放',
+  'Sides: auto': '左右：自动',
+  'Sides: mirrored': '左右：镜像',
+  'Sides: same side': '左右：同侧',
+  'mirrored': '镜像',
+  'same side': '同侧',
+  'Whether your left should mirror the dancer, or match their side. Auto reads which way they are facing.':
+    '你的左手是对应舞者的右手（镜像），还是同一侧。自动模式会判断他面朝哪边。',
   // header / library
   'Load any dance video and follow the outline': '加载任意舞蹈视频，跟着轮廓线练',
   'Dances you have opened before': '你打开过的舞蹈',
@@ -30,7 +56,6 @@ export const ZH: Record<string, string> = {
   'Play past the end of a phrase, then mark it': '播过一段的结尾，再标记它',
   'No hands found — try zooming in or locking on a dancer': '没检测到手——试试放大或锁定舞者',
   'Loop this phrase': '循环这一段',
-  'Sections': '段落',
   'Section name': '段落名称',
   'Remove section': '删除段落',
   // webcam panel
@@ -41,7 +66,6 @@ export const ZH: Record<string, string> = {
   'Comparing live': '实时对比中',
   'Auto': '自动',
   'Mirror only when the reference dancer faces the camera': '仅当参考舞者面向镜头时才镜像',
-  'Mirror': '镜像',
   'Your left hand matches the dancer’s right': '你的左手对应舞者的右手',
   'Direct': '同向',
   'Same side as the dancer — for tutorials filmed from behind': '和舞者同一侧——适合从背后拍摄的教程',
@@ -71,11 +95,9 @@ export const ZH: Record<string, string> = {
 Object.assign(ZH, {
   'Turn on your camera to follow along': '打开摄像头，跟着一起跳',
   'not on this device': '不在这台设备上',
-  'Mark to here': '标记到这里',
   "dancer's left": '舞者的左侧',
   "dancer's right": '舞者的右侧',
   'torso': '躯干',
-  'You': '你',
   'matching': '跟上了',
   'a bit off': '略有偏差',
   'way off': '差得较远',
