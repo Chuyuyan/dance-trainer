@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
-import { computeAngles, compareToHistory, levelConnectionColors, HEAD, type LagState } from '../pose/angles'
+import { computeAngles, compareToHistory, levelConnectionColors, HEAD, type LagState, type PoseFeature } from '../pose/angles'
 import { LandmarkSmoother } from '../pose/filter'
+import { framingProblems } from '../pose/checkup'
+import Checkup from './Checkup'
 
 /** Whether to mirror the comparison; 'auto' follows the reference's facing. */
 type MirrorMode = 'auto' | 'mirror' | 'direct'
@@ -47,6 +49,8 @@ export default function WebcamPanel({
   // The lag estimate persists between frames so it can settle.
   const lagStateRef = useRef<LagState>({ lag: 0 })
   const smootherRef = useRef(new LandmarkSmoother())
+  // Latest reading, so the guided check can sample without its own detector.
+  const latestRef = useRef<{ feature: PoseFeature; framing: string[] } | null>(null)
   const lastUiRef = useRef(0)
   const mirrorModeRef = useRef<MirrorMode>('auto')
 
@@ -62,8 +66,27 @@ export default function WebcamPanel({
   const [score, setScore] = useState<number | null>(null)
   const [lag, setLag] = useState<number | null>(null)
   const [problems, setProblems] = useState<string[]>([])
+  const [framing, setFraming] = useState<string[]>([])
+  const [checking, setChecking] = useState(false)
 
   mirrorModeRef.current = mirrorMode
+
+  // Asking every session is friction for something already agreed to, so if
+  // the permission is on record the camera comes up by itself. Browsers that
+  // do not answer the query simply keep the button.
+  useEffect(() => {
+    let cancelled = false
+    navigator.permissions
+      ?.query({ name: 'camera' as PermissionName })
+      .then((status) => {
+        if (!cancelled && status.state === 'granted') void start()
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -165,6 +188,8 @@ export default function WebcamPanel({
       let frameLag: number | null = null
       if (pose && world) {
         const user = computeAngles(world)
+        const framingNow = framingProblems(pose)
+        latestRef.current = { feature: user, framing: framingNow }
         // You always face your own camera, so mirroring is only right when the
         // reference dancer faces theirs.
         const mirrored =
@@ -225,6 +250,7 @@ export default function WebcamPanel({
         setScore(emaRef.current === null ? null : Math.round(emaRef.current))
         setProblems(frameProblems)
         setLag(lagRef.current)
+        setFraming(latestRef.current?.framing ?? [])
         setMirroredNow(
           mirrorModeRef.current === 'auto'
             ? targetRef.current.facing !== 'back'
@@ -254,7 +280,19 @@ export default function WebcamPanel({
             {error && <p className="error">{error}</p>}
           </div>
         )}
-        {running && (
+        {running && framing.length > 0 && !checking && (
+          <div className="framing-warning">
+            {framing.map((f) => (
+              <p key={f}>{T(f)}</p>
+            ))}
+          </div>
+        )}
+        {running && checking && (
+          <div className="stage-overlay checkup-overlay">
+            <Checkup read={() => latestRef.current} onClose={() => setChecking(false)} />
+          </div>
+        )}
+        {running && !checking && (
           <div className="score-badge">
             <span className="score-num">{score ?? '—'}</span>
             <span className="score-label">match</span>
@@ -272,6 +310,11 @@ export default function WebcamPanel({
           {running && (
             <button className="btn" onClick={stop}>
               {T('Stop camera')}
+            </button>
+          )}
+          {running && !checking && (
+            <button className="btn subtle" onClick={() => setChecking(true)} title={T('Follow a few poses so the scoring can be checked against known answers')}>
+              {T('Check accuracy')}
             </button>
           )}
           {/* Auto is right almost always, so this is one button that reports
