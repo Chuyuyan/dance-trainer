@@ -18,7 +18,7 @@ import {
   unproject,
   type CropBox,
 } from '../pose/skeleton'
-import { computeAngles, type JointAngles, type TargetFrame } from '../pose/angles'
+import { computeAngles, type JointAngles, type Landmark3, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
 import { LandmarkSmoother } from '../pose/filter'
 import SectionList from './SectionList'
@@ -318,7 +318,6 @@ export default function VideoPanel({
       }
       const ctx = cv.getContext('2d')!
       ctx.clearRect(0, 0, vw, vh)
-      const aspect = vw / vh
 
       // A click always re-picks. Prefer a pose the full-frame pass can see;
       // otherwise lock a default box on the click and let the crop pass find
@@ -347,6 +346,7 @@ export default function VideoPanel({
       }
 
       let selected: NormalizedLandmark[] | null = null
+      let selectedWorld: Landmark3[] | null = null
       let others: NormalizedLandmark[][] = []
 
       if (lockRef.current) {
@@ -355,6 +355,9 @@ export default function VideoPanel({
         const local = res.landmarks[0]
         if (local) {
           selected = unproject(local, box, vw, vh)
+          // World landmarks are hip-centred metres, so a crop does not distort
+          // them and they need no unprojection.
+          selectedWorld = res.worldLandmarks[0] ?? null
           missRef.current = 0
           // Ease the box toward the dancer so it follows without jitter.
           const next = cropAround(selected, vw, vh)
@@ -373,6 +376,7 @@ export default function VideoPanel({
         const poses = res.landmarks
         const idx = pickPose(poses, selCenterRef.current, null)
         selected = idx >= 0 ? poses[idx] : null
+        selectedWorld = idx >= 0 ? res.worldLandmarks[idx] ?? null : null
         others = poses.filter((_, i) => i !== idx)
         setPersonCount(poses.length)
       }
@@ -387,7 +391,7 @@ export default function VideoPanel({
         selected = smootherRef.current.filter(selected, performance.now() / 1000)
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
         drawSkeleton(ctx, selected, vw, vh, { lineWidth: 7, sideColors: SIDE_COLORS })
-        const angles = computeAngles(selected, aspect)
+        const angles = selectedWorld ? computeAngles(selectedWorld) : null
         const target = targetRef.current
         target.angles = angles
         target.time = v.currentTime
@@ -400,7 +404,7 @@ export default function VideoPanel({
         const hist = target.history
         const last = hist[hist.length - 1]
         if (last && (v.currentTime < last.t || v.currentTime > last.t + LAG_WINDOW_S)) hist.length = 0
-        hist.push({ t: v.currentTime, angles })
+        if (angles) hist.push({ t: v.currentTime, angles })
         while (hist.length > 1 && hist[0].t < v.currentTime - LAG_WINDOW_S) hist.shift()
       } else {
         targetRef.current.angles = null

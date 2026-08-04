@@ -152,6 +152,7 @@ export default function WebcamPanel({
       ctx.clearRect(0, 0, cv.width, cv.height)
 
       const raw = res.landmarks[0]
+      const world = res.worldLandmarks[0]
       // Steady the landmarks before anything reads them, so a body holding
       // still produces a still skeleton and a steady score.
       const pose = raw ? smootherRef.current.filter(raw, performance.now() / 1000) : undefined
@@ -159,8 +160,8 @@ export default function WebcamPanel({
       let frameScore: number | null = null
       let frameProblems: string[] = []
       let frameLag: number | null = null
-      if (pose) {
-        const user = computeAngles(pose, cv.width / cv.height)
+      if (pose && world) {
+        const user = computeAngles(world)
         // You always face your own camera, so mirroring is only right when the
         // reference dancer faces theirs.
         const mirrored =

@@ -1,4 +1,3 @@
-import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import { LM, type Level } from './skeleton'
 
 export interface JointDef {
@@ -26,71 +25,82 @@ export const JOINTS: JointDef[] = [
 
 export type JointAngles = Record<string, number | null>
 
+
+/**
+ * A landmark with real depth. MediaPipe returns these alongside the projected
+ * ones, in metres from the hips — the same pose gives the same numbers whatever
+ * the camera is doing, which the flattened version cannot promise.
+ */
+export interface Landmark3 {
+  x: number
+  y: number
+  z: number
+  visibility?: number
+}
+
+type Vec = { x: number; y: number; z: number }
+
+const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
+const mid = (a: Vec, b: Vec): Vec => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 })
+const dot = (a: Vec, b: Vec) => a.x * b.x + a.y * b.y + a.z * b.z
+const len = (a: Vec) => Math.hypot(a.x, a.y, a.z)
+const unit = (a: Vec): Vec | null => {
+  const l = len(a)
+  return l < 1e-6 ? null : { x: a.x / l, y: a.y / l, z: a.z / l }
+}
+
 /** Key for the head's yaw inside a JointAngles map. */
 export const HEAD = 'head'
 export const HEAD_LABEL = 'head turn'
 
 /**
- * Which way the head is turned, in degrees: 0 looking straight at the camera,
- * positive turned towards their own left, +-90 in full profile.
+ * Which way the head is turned, in degrees relative to the shoulders: 0
+ * looking the same way the body faces, positive turned towards their own left,
+ * ±90 in full profile.
  *
- * Derived from where the nose sits between the ears. Facing forward it is
- * centred; as the head turns, it slides towards the ear it is turning
- * towards, reaching that ear in profile — so the offset over the half-span
- * approximates the sine of the yaw. Ear landmarks are inferred rather than
- * seen once the head turns far, which is why this is treated as a coarse
- * direction and not a precise measurement.
+ * Measured in three dimensions and against the shoulder line, so it means the
+ * same thing whatever the camera is doing — and "turned relative to the body"
+ * is what a routine actually calls for. Ear landmarks are inferred rather than
+ * seen once the head turns far, so treat this as a direction, not a precise
+ * measurement.
  */
-export function headYaw(lm: NormalizedLandmark[], aspect: number): number | null {
+export function headYaw(lm: Landmark3[]): number | null {
   const nose = lm[LM.nose]
   const le = lm[LM.lEar]
   const re = lm[LM.rEar]
-  if (!vis(nose) || !vis(le) || !vis(re)) return null
-  const ex = (le.x - re.x) * aspect
-  const ey = le.y - re.y
-  const span = Math.hypot(ex, ey)
-  // Half the ear span shrinks as cos(yaw); the nose's offset from their
-  // midpoint grows as sin(yaw). The ratio is therefore a tangent, not a sine —
-  // normalising by the span alone saturates long before the head is in profile.
-  const half = span / 2
-  const mx = ((le.x + re.x) / 2) * aspect
-  const my = (le.y + re.y) / 2
-  const offset =
-    span < 1e-6 ? nose.x * aspect - mx : (((nose.x * aspect) - mx) * ex + (nose.y - my) * ey) / span
-  // In full profile the ears converge, so guard on the head's overall scale
-  // rather than the span, which is exactly what vanishes there.
-  if (Math.hypot(offset, half) < 1e-4) return null
-  return (Math.atan2(offset, half) * 180) / Math.PI
+  const ls = lm[LM.lShoulder]
+  const rs = lm[LM.rShoulder]
+  if (!vis(nose) || !vis(le) || !vis(re) || !vis(ls) || !vis(rs)) return null
+  // Where the face points, from the middle of the head outwards.
+  const forward = unit(sub(nose, mid(le, re)))
+  // The body's own left, so the result is head-relative-to-torso.
+  const across = unit(sub(ls, rs))
+  if (!forward || !across) return null
+  return (Math.asin(Math.max(-1, Math.min(1, dot(forward, across)))) * 180) / Math.PI
 }
 
 const VIS_MIN = 0.4
 
-function vis(lm: NormalizedLandmark) {
+
+function vis(lm: Landmark3) {
   return (lm.visibility ?? 1) >= VIS_MIN
 }
 
-function angleAt(lm: NormalizedLandmark[], a: number, b: number, c: number, aspect: number): number | null {
+function angleAt(lm: Landmark3[], a: number, b: number, c: number): number | null {
   if (!vis(lm[a]) || !vis(lm[b]) || !vis(lm[c])) return null
-  // Landmarks are normalized per-axis, so x is squashed by the frame aspect.
-  // Scale x back into units of frame height or every angle is skewed — and the
-  // video and the webcam usually have different aspect ratios.
-  const v1x = (lm[a].x - lm[b].x) * aspect
-  const v1y = lm[a].y - lm[b].y
-  const v2x = (lm[c].x - lm[b].x) * aspect
-  const v2y = lm[c].y - lm[b].y
-  const dot = v1x * v2x + v1y * v2y
-  const m1 = Math.hypot(v1x, v1y)
-  const m2 = Math.hypot(v2x, v2y)
+  const v1 = sub(lm[a], lm[b])
+  const v2 = sub(lm[c], lm[b])
+  const m1 = len(v1)
+  const m2 = len(v2)
   if (m1 < 1e-6 || m2 < 1e-6) return null
-  const cos = Math.min(1, Math.max(-1, dot / (m1 * m2)))
+  const cos = Math.min(1, Math.max(-1, dot(v1, v2) / (m1 * m2)))
   return (Math.acos(cos) * 180) / Math.PI
 }
 
-/** `aspect` is the source frame's width / height. */
-export function computeAngles(lm: NormalizedLandmark[], aspect: number): JointAngles {
+export function computeAngles(lm: Landmark3[]): JointAngles {
   const out: JointAngles = {}
-  for (const j of JOINTS) out[j.name] = angleAt(lm, j.a, j.b, j.c, aspect)
-  out[HEAD] = headYaw(lm, aspect)
+  for (const j of JOINTS) out[j.name] = angleAt(lm, j.a, j.b, j.c)
+  out[HEAD] = headYaw(lm)
   return out
 }
 
