@@ -297,6 +297,101 @@ header .sub {
   max-width: 360px;
 }
 
+/* Sections */
+
+.sections {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.section {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: #171e33;
+  overflow: hidden;
+}
+
+.section.is-active {
+  border-color: var(--cyan);
+}
+
+.section-play {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+
+/* How much this phrase has been drilled, relative to the most drilled one. */
+.section-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(67, 232, 255, 0.12);
+  pointer-events: none;
+}
+
+.section-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.section-name {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 3px;
+  width: 100%;
+  max-width: 220px;
+}
+
+.section-name:hover,
+.section-name:focus {
+  background: rgba(255, 255, 255, 0.07);
+  outline: none;
+}
+
+.section-sub {
+  font-size: 11px;
+  color: var(--muted);
+  padding-left: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.section-remove {
+  flex: none;
+  width: 26px;
+  font-size: 15px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.section-remove:hover {
+  color: var(--bad);
+}
+
 /* Library */
 
 .library-panel {

@@ -66,6 +66,7 @@ and the camera all stay on the machine.
 - Group video: click a dancer to lock onto them
 - *Fingers* — overlays a 21-point hand skeleton (off by default, see below)
 - **Library** — every video you open is remembered, with a poster frame, so the next session is one click away instead of another trip through the file picker
+- **Sections** — mark the phrases of a routine with one click each, then click one to loop it. Practice is charged to the phrase you were actually dancing, so you can see which eight-count you have been avoiding
 
 **You panel**
 
@@ -271,6 +272,32 @@ from -90 to +90 and invariant to frame aspect.
 Mirroring negates head turn rather than swapping it with the opposite side, the
 way limbs are handled.
 
+### Sections, and why marking them has to be one click
+
+A dance is learned in phrases, not as one three-minute lump, and "your match
+was 68" tells you nothing you can act on. Sections make the score specific:
+which eight-count you keep avoiding, and whether it is getting better.
+
+The design constraint is the marking, not the storage. If labelling eight
+phrases means dragging the scrubber sixteen times, nobody will do it and the
+feature is dead. So each new phrase starts where the last one ended: play the
+video and click **Mark to here** at the end of each phrase — one click per
+phrase, in time, while watching. An explicit A-B still wins when it is set.
+
+Clicking a phrase arms the loop and seeks to it, so drilling one is also a
+single click. Practice is then charged automatically to whichever phrase was
+on screen, and only while a score exists — standing off-camera between takes
+is not practice.
+
+Totals per phrase are kept as running sums rather than averages, so sessions
+merge correctly: a second session at a lower score lowers the mean without
+touching the best, which an average-of-averages would get wrong.
+
+Sections belong to the dance and live with it in the library, so they survive
+reloads and are there next time you open that video. Overlaps are allowed —
+a tight phrase inside a looser one is a reasonable thing to want — and the
+tightest match wins, being the more specific answer.
+
 ### Things that bite
 
 - A paused or freshly seeked `<video>` can upload as an empty frame to WebGL. Draw it to a 2D canvas first.
@@ -292,7 +319,8 @@ way limbs are handled.
 
 - DTW time alignment, to separate "off the beat" from "wrong move"
 - Overlaying your skeleton directly on the reference skeleton, which is more informative than a score
-- Per-section practice history: which eight-counts keep going wrong
+- Auto-marking phrases from the music's tempo, so sections need no clicking at all
+- A post-session replay: a timeline of where you drifted, linked to the phrase it happened in
 
 ## Accounts (optional)
 

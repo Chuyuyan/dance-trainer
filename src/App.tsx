@@ -5,13 +5,16 @@ import AccountBar from './components/AccountBar'
 import Library from './components/Library'
 import { LEVEL_COLORS, SIDE_COLORS } from './pose/skeleton'
 import {
+  addSectionPractice,
   forget,
   getVideo,
   listLibrary,
   mergeRemote,
   remember,
+  saveSections,
   touch,
   type LibraryEntry,
+  type Section,
 } from './lib/library'
 import {
   loadLibraryIndex,
@@ -29,7 +32,13 @@ export default function App() {
   const [stats, setStats] = useState<Map<string, VideoStats>>(new Map())
   const [current, setCurrent] = useState<LibraryEntry | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
-  const targetRef = useRef<TargetPose>({ angles: null, history: [], time: 0, facing: null })
+  const targetRef = useRef<TargetPose>({
+    angles: null,
+    history: [],
+    time: 0,
+    facing: null,
+    sectionId: null,
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -114,6 +123,24 @@ export default function App() {
     await refresh()
   }
 
+  /** Sections belong to the dance, so they live with it in the library. */
+  const updateSections = async (sections: Section[]) => {
+    if (!current) return
+    const ordered = [...sections].sort((a, b) => a.start - b.start)
+    // Update in place so the panel does not wait on a round trip to IndexedDB.
+    setCurrent({ ...current, sections: ordered })
+    setLibrary((all) => all.map((e) => (e.id === current.id ? { ...e, sections: ordered } : e)))
+    await saveSections(current.id, ordered)
+  }
+
+  const recordSectionPractice = async (deltas: Parameters<typeof addSectionPractice>[1]) => {
+    if (!current) return
+    await addSectionPractice(current.id, deltas)
+    const fresh = await listLibrary()
+    setLibrary(fresh)
+    setCurrent(fresh.find((e) => e.id === current.id) ?? current)
+  }
+
   const forgetEntry = async (entry: LibraryEntry) => {
     await forget(entry.id)
     if (current?.id === entry.id) setCurrent(null)
@@ -169,7 +196,13 @@ export default function App() {
 
       <main className="panels">
         {src ? (
-          <VideoPanel src={src} targetRef={targetRef} />
+          <VideoPanel
+            src={src}
+            targetRef={targetRef}
+            sections={current?.sections ?? []}
+            sectionStats={current?.sectionStats}
+            onSectionsChange={(sections) => void updateSections(sections)}
+          />
         ) : (
           <section
             className={`panel dropzone ${dragOver ? 'over' : ''}`}
@@ -204,6 +237,7 @@ export default function App() {
           targetRef={targetRef}
           videoId={current?.id}
           videoName={current?.name}
+          onSectionPractice={(deltas) => void recordSectionPractice(deltas)}
         />
       </main>
 

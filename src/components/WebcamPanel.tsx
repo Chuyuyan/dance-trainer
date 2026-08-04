@@ -10,14 +10,33 @@ type MirrorMode = 'auto' | 'mirror' | 'direct'
 import type { TargetPose } from './VideoPanel'
 import { recordSession } from '../playkitClient'
 
+/** Practice accumulated against one phrase during a single session. */
+export interface SectionPractice {
+  seconds: number
+  sumMatch: number
+  samples: number
+  bestMatch: number
+}
+
 interface Props {
   targetRef: React.MutableRefObject<TargetPose>
   /** Which dance is loaded, so practice is filed against it in the library. */
   videoId?: string
   videoName?: string
+  /** Called when the camera stops, with what was practised per phrase. */
+  onSectionPractice?: (deltas: Record<string, SectionPractice>) => void
 }
 
-export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
+export default function WebcamPanel({
+  targetRef,
+  videoId,
+  videoName,
+  onSectionPractice,
+}: Props) {
+  // Per-phrase totals for this session, plus the clock used to charge time to
+  // whichever phrase was on screen.
+  const sectionAccumRef = useRef<Record<string, SectionPractice>>({})
+  const sectionClockRef = useRef(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const landmarkerRef = useRef<PoseLandmarker | null>(null)
@@ -97,6 +116,11 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
+    const perSection = sectionAccumRef.current
+    if (Object.keys(perSection).length) onSectionPractice?.(perSection)
+    sectionAccumRef.current = {}
+    sectionClockRef.current = 0
+
     emaRef.current = null
     lagRef.current = null
     smootherRef.current.reset()
@@ -152,6 +176,25 @@ export default function WebcamPanel({ targetRef, videoId, videoName }: Props) {
         frameScore = cmp.score
         frameProblems = cmp.problems
         frameLag = cmp.lag
+      }
+
+      // Charge elapsed time to the phrase that was playing, but only while a
+      // score exists — standing off-camera between takes is not practice.
+      const clockNow = performance.now()
+      const elapsed = sectionClockRef.current ? (clockNow - sectionClockRef.current) / 1000 : 0
+      sectionClockRef.current = clockNow
+      const sid = target.sectionId
+      if (sid && frameScore !== null && elapsed > 0 && elapsed < 1) {
+        const acc = (sectionAccumRef.current[sid] ??= {
+          seconds: 0,
+          sumMatch: 0,
+          samples: 0,
+          bestMatch: 0,
+        })
+        acc.seconds += elapsed
+        acc.sumMatch += frameScore
+        acc.samples++
+        if (frameScore > acc.bestMatch) acc.bestMatch = frameScore
       }
 
       if (frameScore !== null) {

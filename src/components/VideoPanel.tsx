@@ -20,9 +20,13 @@ import {
 import { computeAngles, type JointAngles, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
 import { LandmarkSmoother } from '../pose/filter'
+import SectionList from './SectionList'
+import { activeSection, newSectionId, type Section, type SectionStat } from '../lib/library'
 
 export interface TargetPose {
   angles: JointAngles | null
+  /** Which marked phrase the video is inside, so practice can be filed to it. */
+  sectionId: string | null
   /** Recent reference frames, oldest first, so scoring can tolerate lag. */
   history: TargetFrame[]
   /** Current video time in seconds. */
@@ -37,7 +41,11 @@ const LAG_WINDOW_S = 1
 interface Props {
   src: string
   targetRef: React.MutableRefObject<TargetPose>
+  sections: Section[]
+  sectionStats?: Record<string, SectionStat>
+  onSectionsChange: (sections: Section[]) => void
 }
+
 
 const RATES = [0.25, 0.5, 0.75, 1]
 
@@ -103,7 +111,15 @@ function fmt(t: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function VideoPanel({ src, targetRef }: Props) {
+export default function VideoPanel({
+  src,
+  targetRef,
+  sections,
+  sectionStats,
+  onSectionsChange,
+}: Props) {
+  const sectionsRef = useRef<Section[]>([])
+  sectionsRef.current = sections
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -373,6 +389,7 @@ export default function VideoPanel({ src, targetRef }: Props) {
         const target = targetRef.current
         target.angles = angles
         target.time = v.currentTime
+        target.sectionId = activeSection(sectionsRef.current, v.currentTime)?.id ?? null
         // Side-on frames report nothing; hold the last confident reading.
         target.facing = facing(selected) ?? target.facing
 
@@ -592,6 +609,43 @@ export default function VideoPanel({ src, targetRef }: Props) {
     if (videoRef.current) videoRef.current.playbackRate = r
   }
 
+  /**
+   * Marks the phrase that just finished.
+   *
+   * Marking eight sections should not mean dragging the scrubber sixteen
+   * times, so each new phrase starts where the last one ended: play, click at
+   * the end of each phrase, done. An explicit A-B still wins when it is set.
+   */
+  const lastEnd = sections.length ? Math.max(...sections.map((s) => s.end)) : 0
+  const sectionStart = loopA ?? lastEnd
+  const sectionEnd = loopB ?? currentTime
+  const canAddSection = sectionEnd - sectionStart >= 0.5
+
+  const addSection = () => {
+    if (!canAddSection) return
+    onSectionsChange([
+      ...sections,
+      {
+        id: newSectionId(),
+        name: `Section ${sections.length + 1}`,
+        start: sectionStart,
+        end: sectionEnd,
+      },
+    ])
+    // Chain straight into marking the next phrase.
+    setLoopA(null)
+    setLoopB(null)
+  }
+
+  const playSection = (section: Section) => {
+    const v = videoRef.current
+    if (!v) return
+    setLoopA(section.start)
+    setLoopB(section.end)
+    v.currentTime = section.start
+    void v.play()
+  }
+
   return (
     <section className="panel">
       <div className="panel-head">
@@ -746,6 +800,22 @@ export default function VideoPanel({ src, targetRef }: Props) {
           )}
         </div>
 
+        <div className="ctrl-group">
+          <span className="ctrl-label">Sections</span>
+          <button
+            className="btn"
+            onClick={addSection}
+            disabled={!canAddSection}
+            title={
+              canAddSection
+                ? `Mark ${fmt(sectionStart)}–${fmt(sectionEnd)} as a phrase`
+                : 'Play past the end of a phrase, then mark it'
+            }
+          >
+            Mark to here
+          </button>
+        </div>
+
         {handsOn && (
           <div className="ctrl-group">
             <span className="hint">
@@ -756,6 +826,17 @@ export default function VideoPanel({ src, targetRef }: Props) {
           </div>
         )}
       </div>
+
+      <SectionList
+        sections={sections}
+        stats={sectionStats}
+        activeId={activeSection(sections, currentTime)?.id ?? null}
+        onPlay={playSection}
+        onRemove={(s) => onSectionsChange(sections.filter((x) => x.id !== s.id))}
+        onRename={(s, name) =>
+          onSectionsChange(sections.map((x) => (x.id === s.id ? { ...x, name } : x)))
+        }
+      />
     </section>
   )
 }

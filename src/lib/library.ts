@@ -22,6 +22,24 @@ const STORAGE_BUDGET = 1_500 * 1024 * 1024
 /** How many videos keep their file at once, regardless of size. */
 const MAX_STORED_VIDEOS = 12
 
+/** A phrase of the routine — an eight-count, a chorus, the bit you keep losing. */
+export interface Section {
+  id: string
+  name: string
+  /** Video seconds. */
+  start: number
+  end: number
+}
+
+/** What practice against one section has added up to. */
+export interface SectionStat {
+  seconds: number
+  bestMatch: number
+  /** Mean match, kept as a running total so sessions can be merged. */
+  sumMatch: number
+  samples: number
+}
+
 export interface LibraryEntry {
   id: string
   name: string
@@ -36,6 +54,10 @@ export interface LibraryEntry {
   thumb?: string
   /** Whether the file itself is still on this device. */
   hasVideo: boolean
+  /** Marked phrases, ordered by start time. */
+  sections?: Section[]
+  /** Practice totals per section id. */
+  sectionStats?: Record<string, SectionStat>
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null
@@ -222,6 +244,68 @@ export async function remember(file: File): Promise<LibraryEntry | null> {
     return entry
   } catch {
     return null
+  }
+}
+
+/**
+ * The phrase covering this moment. Overlaps are not prevented — a dancer may
+ * want a tight phrase inside a looser one — so the tightest wins, being the
+ * more specific answer.
+ */
+export function activeSection(sections: Section[], t: number): Section | null {
+  let best: Section | null = null
+  for (const s of sections) {
+    if (t < s.start || t > s.end) continue
+    if (!best || s.end - s.start < best.end - best.start) best = s
+  }
+  return best
+}
+
+export function newSectionId(): string {
+  return crypto.randomUUID?.() ?? `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+}
+
+/** Replaces the marked phrases for a dance, keeping them in playing order. */
+export async function saveSections(id: string, sections: Section[]): Promise<void> {
+  try {
+    const existing = await tx<LibraryEntry | undefined>(META_STORE, 'readonly', (s) => s.get(id))
+    if (!existing) return
+    await putMeta({ ...existing, sections: [...sections].sort((a, b) => a.start - b.start) })
+  } catch {
+    /* sections are an enhancement, never worth breaking playback over */
+  }
+}
+
+/**
+ * Folds one session's practice into the running per-section totals.
+ *
+ * Deltas rather than absolutes so a session can be merged without having read
+ * the stored totals first, which keeps this correct if two tabs practise the
+ * same dance.
+ */
+export async function addSectionPractice(
+  id: string,
+  deltas: Record<string, { seconds: number; sumMatch: number; samples: number; bestMatch: number }>,
+): Promise<void> {
+  const ids = Object.keys(deltas)
+  if (!ids.length) return
+  try {
+    const existing = await tx<LibraryEntry | undefined>(META_STORE, 'readonly', (s) => s.get(id))
+    if (!existing) return
+    const stats: Record<string, SectionStat> = { ...(existing.sectionStats ?? {}) }
+    for (const sid of ids) {
+      const d = deltas[sid]
+      const cur = stats[sid] ?? { seconds: 0, bestMatch: 0, sumMatch: 0, samples: 0 }
+      stats[sid] = {
+        seconds: cur.seconds + d.seconds,
+        bestMatch: Math.max(cur.bestMatch, d.bestMatch),
+        sumMatch: cur.sumMatch + d.sumMatch,
+        samples: cur.samples + d.samples,
+      }
+    }
+    await putMeta({ ...existing, sectionStats: stats })
+  } catch {
+    /* practice totals are a bonus */
   }
 }
 
