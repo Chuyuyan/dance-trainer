@@ -27,8 +27,6 @@ public/models
 *.sln
 *.sw?
 
-# Claude Code local config
-.claude
 
 # Local env
 .env.local
