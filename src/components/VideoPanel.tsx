@@ -18,7 +18,7 @@ import {
   unproject,
   type CropBox,
 } from '../pose/skeleton'
-import { computeAngles, type Landmark3, type PoseFeature, type TargetFrame } from '../pose/angles'
+import { computeAngles, dimmedSegments, type Focus, type Landmark3, type PoseFeature, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
 import { LandmarkSmoother } from '../pose/filter'
 import SectionList from './SectionList'
@@ -45,6 +45,7 @@ interface Props {
   sections: Section[]
   sectionStats?: Record<string, SectionStat>
   onSectionsChange: (sections: Section[]) => void
+  focus: Focus
 }
 
 
@@ -118,7 +119,10 @@ export default function VideoPanel({
   sections,
   sectionStats,
   onSectionsChange,
+  focus,
 }: Props) {
+  const focusRef = useRef<Focus>('full')
+  focusRef.current = focus
   const sectionsRef = useRef<Section[]>([])
   sectionsRef.current = sections
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -390,7 +394,11 @@ export default function VideoPanel({
         // noise feeds straight into the target angles.
         selected = smootherRef.current.filter(selected, performance.now() / 1000)
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
-        drawSkeleton(ctx, selected, vw, vh, { lineWidth: 7, sideColors: SIDE_COLORS })
+        drawSkeleton(ctx, selected, vw, vh, {
+          lineWidth: 7,
+          sideColors: SIDE_COLORS,
+          dimmed: dimmedSegments(focusRef.current),
+        })
         const feature = selectedWorld ? computeAngles(selectedWorld) : null
         const target = targetRef.current
         target.feature = feature

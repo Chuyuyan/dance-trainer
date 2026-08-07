@@ -126,7 +126,10 @@ export const CHECK_STEPS: CheckStep[] = CHECKS.map((c) => ({ ...c, target: compu
  * Reasons the camera view itself would spoil a score, checked before blaming
  * the dancer. Returns an empty list when the framing is fine.
  */
-export function framingProblems(lm: { x: number; y: number; visibility?: number }[]): string[] {
+export function framingProblems(
+  lm: { x: number; y: number; visibility?: number }[],
+  focus: 'full' | 'upper' | 'lower' = 'full',
+): string[] {
   const out: string[] = []
   const seen = (i: number) => (lm[i]?.visibility ?? 0) >= 0.5
   const torso = seen(LM.lShoulder) && seen(LM.rShoulder) && seen(LM.lHip) && seen(LM.rHip)
@@ -134,7 +137,9 @@ export function framingProblems(lm: { x: number; y: number; visibility?: number 
     out.push('Move back so your whole upper body is in frame')
     return out
   }
-  if (!seen(LM.lAnkle) || !seen(LM.rAnkle)) out.push('Your feet are out of frame, so leg movements are not scored')
+  // Nagging about feet while someone practises their arms is pure noise.
+  if (focus !== 'upper' && (!seen(LM.lAnkle) || !seen(LM.rAnkle)))
+    out.push('Your feet are out of frame, so leg movements are not scored')
 
   const ys = [LM.lShoulder, LM.rShoulder, LM.lHip, LM.rHip].map((i) => lm[i].y)
   const xs = [LM.lShoulder, LM.rShoulder].map((i) => lm[i].x)

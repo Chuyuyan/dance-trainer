@@ -129,6 +129,26 @@ export function computeFeature(lm: Landmark3[]): PoseFeature {
 /** Kept under the old name so the panels read unchanged. */
 export const computeAngles = computeFeature
 
+/**
+ * Which half of the body is being practised.
+ *
+ * Averaging every limb into one number hides exactly what you are working on:
+ * measured on a synthetic routine, arms danced correctly with completely wrong
+ * legs still scored 97, and standing still scored 53 because the legs and torso
+ * match for free. Scoring only the half you chose makes the number mean
+ * something — the same standing-still case drops to 34 under arms-only.
+ */
+export type Focus = 'full' | 'upper' | 'lower'
+
+const UPPER_KEYS = new Set(['lUpperArm', 'lForearm', 'rUpperArm', 'rForearm', HEAD])
+const LOWER_KEYS = new Set(['lThigh', 'lShin', 'rThigh', 'rShin'])
+
+export function inFocus(key: string, focus: Focus): boolean {
+  if (focus === 'upper') return UPPER_KEYS.has(key)
+  if (focus === 'lower') return LOWER_KEYS.has(key)
+  return true
+}
+
 export interface Comparison {
   /** 0–100, or null when there is nothing to compare against. */
   score: number | null
@@ -156,6 +176,7 @@ export function compareAngles(
   user: PoseFeature,
   target: PoseFeature | null,
   mirrored: boolean,
+  focus: Focus = 'full',
 ): Comparison {
   const levels: Record<string, Level> = {}
   const errs: { label: string; err: number }[] = []
@@ -163,6 +184,11 @@ export function compareAngles(
   let n = 0
 
   const judge = (key: string, label: string, mine: Vec | null, theirsRaw: Vec | null) => {
+    if (!inFocus(key, focus)) {
+      // Not being practised: shown dimmed, never scored.
+      levels[key] = 'na'
+      return
+    }
     const theirs = theirsRaw && mirrored ? reflect(theirsRaw) : theirsRaw
     if (!mine || !theirs) {
       levels[key] = 'na'
@@ -227,13 +253,14 @@ export function compareToHistory(
   now: number,
   mirrored: boolean,
   state: LagState,
+  focus: Focus = 'full',
 ): TimedComparison {
-  if (!history.length) return { ...compareAngles(user, null, mirrored), lag: null }
+  if (!history.length) return { ...compareAngles(user, null, mirrored, focus), lag: null }
 
   let bestScore = -1
   let bestLag = state.lag
   for (const frame of history) {
-    const c = compareAngles(user, frame.feature, mirrored)
+    const c = compareAngles(user, frame.feature, mirrored, focus)
     if (c.score == null) continue
     if (c.score > bestScore) {
       bestScore = c.score
@@ -254,7 +281,19 @@ export function compareToHistory(
       chosen = frame
     }
   }
-  return { ...compareAngles(user, chosen.feature, mirrored), lag }
+  return { ...compareAngles(user, chosen.feature, mirrored, focus), lag }
+}
+
+/** Connection keys for limbs that are not being practised. */
+export function dimmedSegments(focus: Focus): Set<string> {
+  const out = new Set<string>()
+  if (focus === 'full') return out
+  for (const b of BONES) {
+    if (inFocus(b.name, focus)) continue
+    const seg = BONE_SEGMENTS[b.name]
+    if (seg) out.add(`${seg[0]}-${seg[1]}`)
+  }
+  return out
 }
 
 /** Map per-limb levels onto per-connection colors for drawSkeleton. */

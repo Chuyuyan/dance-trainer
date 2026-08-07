@@ -96,6 +96,8 @@ export interface DrawOptions {
   sideColors?: Record<Side, string>
   /** Overrides the head circle and nose stub, for match feedback. */
   headColor?: string
+  /** Connections to draw faintly: present, but not what you are practising. */
+  dimmed?: Set<string>
 }
 
 export function drawSkeleton(
@@ -112,12 +114,17 @@ export function drawSkeleton(
 
   for (const { a, b, side } of CONNECTIONS) {
     if (!visible(lm[a]) || !visible(lm[b])) continue
-    const c = connectionColors?.get(`${a}-${b}`) ?? sideColors?.[side] ?? color
+    const faded = opts.dimmed?.has(`${a}-${b}`) ?? false
+    const c = faded
+      ? 'rgba(150,150,165,0.28)'
+      : (connectionColors?.get(`${a}-${b}`) ?? sideColors?.[side] ?? color)
     ctx.strokeStyle = c
-    ctx.lineWidth = lineWidth
-    if (glow) {
+    ctx.lineWidth = faded ? lineWidth * 0.5 : lineWidth
+    if (glow && !faded) {
       ctx.shadowColor = c
       ctx.shadowBlur = lineWidth * 2
+    } else {
+      ctx.shadowBlur = 0
     }
     ctx.beginPath()
     ctx.moveTo(lm[a].x * w, lm[a].y * h)

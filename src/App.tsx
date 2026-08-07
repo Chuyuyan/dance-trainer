@@ -5,6 +5,7 @@ import AccountBar from './components/AccountBar'
 import Library from './components/Library'
 import { T, L, useLangTick, LangGlobe } from './i18n'
 import { LEVEL_COLORS, SIDE_COLORS } from './pose/skeleton'
+import type { Focus } from './pose/angles'
 import {
   addSectionPractice,
   forget,
@@ -33,6 +34,7 @@ export default function App() {
   const [stats, setStats] = useState<Map<string, VideoStats>>(new Map())
   const [current, setCurrent] = useState<LibraryEntry | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
+  const [focus, setFocus] = useState<Focus>('full')
   const targetRef = useRef<TargetPose>({
     feature: null,
     history: [],
@@ -205,6 +207,7 @@ export default function App() {
             sections={current?.sections ?? []}
             sectionStats={current?.sectionStats}
             onSectionsChange={(sections) => void updateSections(sections)}
+            focus={focus}
           />
         ) : (
           <section
@@ -240,6 +243,8 @@ export default function App() {
           videoId={current?.id}
           videoName={current?.name}
           onSectionPractice={(deltas) => void recordSectionPractice(deltas)}
+          focus={focus}
+          onFocusChange={setFocus}
         />
       </main>
 

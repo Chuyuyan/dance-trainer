@@ -1,6 +1,14 @@
 // English -> Chinese dictionary. Keys must match source strings exactly;
 // anything missing simply renders in English (graceful fallback by design).
 export const ZH: Record<string, string> = {
+  // practice mode
+  'Practise': '练',
+  'Whole body': '全身',
+  'Arms only': '上半身',
+  'Legs only': '下半身',
+  'Score everything': '全部计分',
+  'Only arms and head are scored — your legs need not be in frame': '只计手臂和头，腿不用入镜',
+  'Only legs are scored — stand back so your feet are visible': '只计腿部，请站远一点让脚入镜',
   // accuracy check
   'Check accuracy': '检测准确度',
   'Follow a few poses so the scoring can be checked against known answers': '跟着做几个动作，用已知答案检验打分是否准确',

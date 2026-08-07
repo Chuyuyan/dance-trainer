@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
 import { createPoseLandmarker } from '../pose/landmarker'
 import { drawSkeleton, LEVEL_COLORS } from '../pose/skeleton'
-import { computeAngles, compareToHistory, levelConnectionColors, HEAD, type LagState, type PoseFeature } from '../pose/angles'
+import { computeAngles, compareToHistory, levelConnectionColors, dimmedSegments, HEAD, type Focus, type LagState, type PoseFeature } from '../pose/angles'
 import { LandmarkSmoother } from '../pose/filter'
 import { framingProblems } from '../pose/checkup'
 import Checkup from './Checkup'
@@ -28,6 +28,9 @@ interface Props {
   videoName?: string
   /** Called when the camera stops, with what was practised per phrase. */
   onSectionPractice?: (deltas: Record<string, SectionPractice>) => void
+  /** Which half of the body is being practised. */
+  focus: Focus
+  onFocusChange: (focus: Focus) => void
 }
 
 export default function WebcamPanel({
@@ -35,7 +38,11 @@ export default function WebcamPanel({
   videoId,
   videoName,
   onSectionPractice,
+  focus,
+  onFocusChange,
 }: Props) {
+  const focusRef = useRef<Focus>('full')
+  focusRef.current = focus
   // Per-phrase totals for this session, plus the clock used to charge time to
   // whichever phrase was on screen.
   const sectionAccumRef = useRef<Record<string, SectionPractice>>({})
@@ -188,7 +195,7 @@ export default function WebcamPanel({
       let frameLag: number | null = null
       if (pose && world) {
         const user = computeAngles(world)
-        const framingNow = framingProblems(pose)
+        const framingNow = framingProblems(pose, focusRef.current)
         latestRef.current = { feature: user, framing: framingNow }
         // You always face your own camera, so mirroring is only right when the
         // reference dancer faces theirs.
@@ -196,12 +203,13 @@ export default function WebcamPanel({
           mirrorModeRef.current === 'auto'
             ? target.facing !== 'back'
             : mirrorModeRef.current === 'mirror'
-        const cmp = compareToHistory(user, target.history, target.time, mirrored, lagStateRef.current)
+        const cmp = compareToHistory(user, target.history, target.time, mirrored, lagStateRef.current, focusRef.current)
         drawSkeleton(ctx, pose, cv.width, cv.height, {
           color: LEVEL_COLORS.na,
           lineWidth: 7,
           connectionColors: target.feature ? levelConnectionColors(cmp.levels, LEVEL_COLORS) : undefined,
           headColor: target.feature ? LEVEL_COLORS[cmp.levels[HEAD] ?? 'na'] : undefined,
+          dimmed: dimmedSegments(focusRef.current),
         })
         frameScore = cmp.score
         frameProblems = cmp.problems
@@ -312,6 +320,23 @@ export default function WebcamPanel({
               {T('Stop camera')}
             </button>
           )}
+          <span className="ctrl-label">{T('Practise')}</span>
+          {(
+            [
+              ['full', T('Whole body'), T('Score everything')],
+              ['upper', T('Arms only'), T('Only arms and head are scored — your legs need not be in frame')],
+              ['lower', T('Legs only'), T('Only legs are scored — stand back so your feet are visible')],
+            ] as const
+          ).map(([mode, label, tip]) => (
+            <button
+              key={mode}
+              className={`btn ${focus === mode ? 'active' : ''}`}
+              onClick={() => onFocusChange(mode)}
+              title={tip}
+            >
+              {label}
+            </button>
+          ))}
           {import.meta.env.DEV && running && !checking && (
             <button className="btn subtle" onClick={() => setChecking(true)} title={T('Follow a few poses so the scoring can be checked against known answers')}>
               {T('Check accuracy')}
