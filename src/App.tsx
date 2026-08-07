@@ -6,14 +6,17 @@ import Library from './components/Library'
 import { T, L, useLangTick, LangGlobe } from './i18n'
 import { LEVEL_COLORS, SIDE_COLORS } from './pose/skeleton'
 import type { Focus } from './pose/angles'
+import { analyseVideo, packTrack, unpackTrack, type PoseTrack } from './pose/track'
 import {
   addSectionPractice,
   forget,
+  getTrack,
   getVideo,
   listLibrary,
   mergeRemote,
   remember,
   saveSections,
+  saveTrack,
   touch,
   type LibraryEntry,
   type Section,
@@ -35,6 +38,8 @@ export default function App() {
   const [current, setCurrent] = useState<LibraryEntry | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>('full')
+  const [track, setTrack] = useState<PoseTrack | null>(null)
+  const [analysing, setAnalysing] = useState<number | null>(null)
   const targetRef = useRef<TargetPose>({
     feature: null,
     history: [],
@@ -85,6 +90,38 @@ export default function App() {
     void syncFromAccount()
     return onAuthChange(() => void syncFromAccount())
   }, [refresh, syncFromAccount])
+
+  // A dance that has been analysed loads its track; anything else falls back to
+  // detecting live, so nothing here is required for the app to work.
+  const currentId = current?.id ?? null
+  useEffect(() => {
+    let cancelled = false
+    setTrack(null)
+    if (!currentId) return
+    void getTrack(currentId).then((stored) => {
+      if (!cancelled && stored) setTrack(unpackTrack(stored))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [currentId])
+
+  const analyse = async () => {
+    if (!current || analysing != null) return
+    const blob = await getVideo(current.id)
+    if (!blob) return
+    setAnalysing(0)
+    try {
+      const result = await analyseVideo(blob, (f) => setAnalysing(f))
+      if (result) {
+        await saveTrack(current.id, packTrack(result))
+        setTrack(result)
+        await refresh()
+      }
+    } finally {
+      setAnalysing(null)
+    }
+  }
 
   const play = (blob: Blob) => {
     setSrc((old) => {
@@ -208,6 +245,9 @@ export default function App() {
             sectionStats={current?.sectionStats}
             onSectionsChange={(sections) => void updateSections(sections)}
             focus={focus}
+            track={track}
+            onAnalyse={() => void analyse()}
+            analysing={analysing}
           />
         ) : (
           <section

@@ -1,6 +1,10 @@
 // English -> Chinese dictionary. Keys must match source strings exactly;
 // anything missing simply renders in English (graceful fallback by design).
 export const ZH: Record<string, string> = {
+  'Analyse': '预分析',
+  'Analysed': '已分析',
+  'Analysing': '分析中',
+  'Work out the reference skeleton once, so playback costs nothing': '把参考骨架一次算好，之后播放不再消耗算力',
   // practice mode
   'Practise': '练',
   'Whole body': '全身',

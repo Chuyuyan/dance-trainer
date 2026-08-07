@@ -9,9 +9,10 @@
  */
 
 const DB_NAME = 'dance-trainer'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const META_STORE = 'library'
 const BLOB_STORE = 'videos'
+const TRACK_STORE = 'tracks'
 
 /** Above this a single file is indexed but not kept; re-pick it to reload. */
 const MAX_STORED_BYTES = 300 * 1024 * 1024
@@ -40,6 +41,12 @@ export interface SectionStat {
   samples: number
 }
 
+export interface StoredTrack {
+  fps: number
+  frames: number
+  buffer: ArrayBuffer
+}
+
 export interface LibraryEntry {
   id: string
   name: string
@@ -58,6 +65,8 @@ export interface LibraryEntry {
   sections?: Section[]
   /** Practice totals per section id. */
   sectionStats?: Record<string, SectionStat>
+  /** Whether an analysed pose track is stored for this dance. */
+  analysed?: boolean
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null
@@ -71,6 +80,9 @@ function openDb(): Promise<IDBDatabase> {
       // has to pull hundreds of megabytes of video off disk.
       if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: 'id' })
       if (!db.objectStoreNames.contains(BLOB_STORE)) db.createObjectStore(BLOB_STORE)
+      // Analysed pose tracks, kept apart for the same reason as the footage:
+      // listing the library must not drag megabytes off disk.
+      if (!db.objectStoreNames.contains(TRACK_STORE)) db.createObjectStore(TRACK_STORE)
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
@@ -309,6 +321,24 @@ export async function addSectionPractice(
   }
 }
 
+export async function saveTrack(id: string, track: StoredTrack): Promise<void> {
+  try {
+    await tx(TRACK_STORE, 'readwrite', (s) => s.put(track, id))
+    const existing = await tx<LibraryEntry | undefined>(META_STORE, 'readonly', (s) => s.get(id))
+    if (existing) await putMeta({ ...existing, analysed: true })
+  } catch {
+    // Out of quota: playback simply falls back to detecting live.
+  }
+}
+
+export async function getTrack(id: string): Promise<StoredTrack | null> {
+  try {
+    return (await tx<StoredTrack | undefined>(TRACK_STORE, 'readonly', (s) => s.get(id))) ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Bumps an entry's recency without needing the file in hand. */
 export async function touch(id: string): Promise<void> {
   try {
@@ -331,6 +361,7 @@ export async function getVideo(id: string): Promise<File | Blob | null> {
 
 export async function forget(id: string): Promise<void> {
   try {
+    await tx(TRACK_STORE, 'readwrite', (s) => s.delete(id))
     await tx(BLOB_STORE, 'readwrite', (s) => s.delete(id))
     await tx(META_STORE, 'readwrite', (s) => s.delete(id))
   } catch {

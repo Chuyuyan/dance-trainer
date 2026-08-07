@@ -21,6 +21,7 @@ import {
 import { computeAngles, dimmedSegments, type Focus, type Landmark3, type PoseFeature, type TargetFrame } from '../pose/angles'
 import { facing, type Facing } from '../pose/skeleton'
 import { LandmarkSmoother } from '../pose/filter'
+import { sampleTrack, type PoseTrack } from '../pose/track'
 import SectionList from './SectionList'
 import { activeSection, newSectionId, type Section, type SectionStat } from '../lib/library'
 
@@ -46,6 +47,10 @@ interface Props {
   sectionStats?: Record<string, SectionStat>
   onSectionsChange: (sections: Section[]) => void
   focus: Focus
+  /** Pre-analysed reference poses, when this dance has been analysed. */
+  track?: PoseTrack | null
+  onAnalyse?: () => void
+  analysing?: number | null
 }
 
 
@@ -120,7 +125,12 @@ export default function VideoPanel({
   sectionStats,
   onSectionsChange,
   focus,
+  track,
+  onAnalyse,
+  analysing,
 }: Props) {
+  const trackRef = useRef<PoseTrack | null>(null)
+  trackRef.current = track ?? null
   const focusRef = useRef<Focus>('full')
   focusRef.current = focus
   const sectionsRef = useRef<Section[]>([])
@@ -353,7 +363,15 @@ export default function VideoPanel({
       let selectedWorld: Landmark3[] | null = null
       let others: NormalizedLandmark[][] = []
 
-      if (lockRef.current) {
+      // An analysed dance needs no inference here at all — the reference never
+      // changes, so it was worked out once and is simply read back.
+      const stored = trackRef.current ? sampleTrack(trackRef.current, v.currentTime) : null
+      if (stored) {
+        selected = stored.landmarks as NormalizedLandmark[]
+        selectedWorld = stored.world
+      }
+
+      if (!stored && lockRef.current) {
         const box = lockRef.current
         const res = cropLmk.detectForVideo(drawFrame(box), stamp())
         const local = res.landmarks[0]
@@ -375,7 +393,7 @@ export default function VideoPanel({
         }
       }
 
-      if (!lockRef.current) {
+      if (!stored && !lockRef.current) {
         const res = fullLmk.detectForVideo(drawFrame(null), stamp())
         const poses = res.landmarks
         const idx = pickPose(poses, selCenterRef.current, null)
@@ -392,7 +410,7 @@ export default function VideoPanel({
       if (selected) {
         // The reference jitters for the same reason the webcam does, and its
         // noise feeds straight into the target angles.
-        selected = smootherRef.current.filter(selected, performance.now() / 1000)
+        if (!stored) selected = smootherRef.current.filter(selected, performance.now() / 1000)
         selCenterRef.current = poseCenter(selected) ?? selCenterRef.current
         drawSkeleton(ctx, selected, vw, vh, {
           lineWidth: 7,
@@ -758,6 +776,20 @@ export default function VideoPanel({
               title={T('Go back to following whoever dominates the frame')}
             >
               {T('Unlock')}
+            </button>
+          )}
+          {onAnalyse && (
+            <button
+              className={`btn subtle ${track ? 'active' : ''}`}
+              onClick={onAnalyse}
+              disabled={analysing != null}
+              title={T('Work out the reference skeleton once, so playback costs nothing')}
+            >
+              {analysing != null
+                ? `${T('Analysing')} ${Math.round(analysing * 100)}%`
+                : track
+                  ? T('Analysed')
+                  : T('Analyse')}
             </button>
           )}
           <button
